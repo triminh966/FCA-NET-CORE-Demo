@@ -1,0 +1,11 @@
+D:\SourceOTF\FCA\FCA.API\FCA.Core\bin\Release\netcoreapp2.1\FCA.Core.deps.json
+D:\SourceOTF\FCA\FCA.API\FCA.Core\bin\Release\netcoreapp2.1\FCA.Core.dll
+D:\SourceOTF\FCA\FCA.API\FCA.Core\bin\Release\netcoreapp2.1\FCA.Core.pdb
+D:\SourceOTF\FCA\FCA.API\FCA.Core\obj\Release\netcoreapp2.1\FCA.Core.csprojAssemblyReference.cache
+D:\SourceOTF\FCA\FCA.API\FCA.Core\obj\Release\netcoreapp2.1\FCA.Core.csproj.CoreCompileInputs.cache
+D:\SourceOTF\FCA\FCA.API\FCA.Core\obj\Release\netcoreapp2.1\FCA.Core.AssemblyInfoInputs.cache
+D:\SourceOTF\FCA\FCA.API\FCA.Core\obj\Release\netcoreapp2.1\FCA.Core.AssemblyInfo.cs
+D:\SourceOTF\FCA\FCA.API\FCA.Core\obj\Release\netcoreapp2.1\FCA.Core.dll
+D:\SourceOTF\FCA\FCA.API\FCA.Core\obj\Release\netcoreapp2.1\FCA.Core.pdb
+D:\SourceOTF\FCA\FCA.API\FCA.Core\bin\Release\netcoreapp2.1\FCA.Core.runtimeconfig.json
+D:\SourceOTF\FCA\FCA.API\FCA.Core\bin\Release\netcoreapp2.1\FCA.Core.runtimeconfig.dev.json
