@@ -13,7 +13,19 @@
 			"Type" : "String",
 			"Description" : "Name of S3 bucket that will be proxied. If left blank a name will be generated.",
 			"MinLength" : "0"
-		}
+		},
+		"TableName": {
+            "Type": "String",
+            "Default": "WebConnection",
+            "Description": "(Required) The name of the new DynamoDB to store connection identifiers for each connected clients. Minimum 3 characters",
+            "MinLength": 3,
+            "MaxLength": 50
+        },
+		"FCAVersion": {
+            "Type": "String",
+            "Default": "FCAVersion",
+            "Description": "(Required) The name of the new DynamoDB to store version application."
+        }
 	},
 
 	"Conditions" : {
@@ -22,7 +34,6 @@
 	},
 
 	"Resources" : {
-
 			"AspNetCoreFunction" : {
 				"Type" : "AWS::Serverless::Function",
 				"Properties": {
@@ -56,16 +67,503 @@
 				}
 			}
 		},
-
 		"Bucket" : {
 			"Type" : "AWS::S3::Bucket",
 			"Condition" : "CreateS3Bucket",
 			"Properties" : {
 				"BucketName" : { "Fn::If" : ["BucketNameGenerated", {"Ref" : "AWS::NoValue" }, { "Ref" : "BucketName" } ] }
 			}
-		}
+		},
+		"FCAWebSocket": {
+            "Type": "AWS::ApiGatewayV2::Api",
+            "Properties": {
+                "Name": "FCAWebSocket",
+                "ProtocolType": "WEBSOCKET",
+                "RouteSelectionExpression": "$request.body.action"
+            }
+        },
+		"FCAAuthorizerFunction": {
+            "Type": "AWS::Serverless::Function",
+            "Properties": {
+                "CodeUri": "",
+                "Handler": "FCA.API::FCAWS.Author::FunctionHandler",
+                "MemorySize": 256,
+				"Timeout": 30,
+                "Runtime": "dotnetcore2.1"
+            }
+        },
+        "FCAAuthorizerFunctionPermission": {
+           "Type": "AWS::Lambda::Permission",
+			 "DependsOn": [
+                "FCAWebSocket",
+                "FCAAuthorizerFunction"
+            ],
+            "Properties": {
+                "Action": "lambda:InvokeFunction",
+               "FunctionName": {
+				"Fn::GetAtt": [
+					"FCAAuthorizerFunction",
+					"Arn"
+					 ]
+				 },
+                "Principal": "apigateway.amazonaws.com"
+        }
+        },
+		"FCAAuthorizer": {
+			"Type": "AWS::ApiGatewayV2::Authorizer",
+			"Properties": {
+				"Name": "FCAAuthorizer",
+				"ApiId": {
+					"Ref": "FCAWebSocket"
+				},
+				"AuthorizerType": "REQUEST",
+				"AuthorizerUri": {"Fn::Sub": "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FCAAuthorizerFunction.Arn}/invocations"
+				},
+				"IdentitySource": [
+					"route.request.querystring.AuthKey"
+				]
+			}
+		},
+        "ConnectRoute": {
+            "Type": "AWS::ApiGatewayV2::Route",
+            "Properties": {
+                "ApiId": {
+                    "Ref": "FCAWebSocket"
+                },
+                "RouteKey": "$connect",
+                "AuthorizationType": "CUSTOM",
+                "OperationName": "ConnectRoute",
+                "Target": {
+                    "Fn::Join": [
+                        "/",
+                        [
+                            "integrations",
+                            {
+                                "Ref": "ConnectInteg"
+                            }
+                        ]
+                    ]
+                },
+                "AuthorizerId": {
+                    "Ref": "FCAAuthorizer"
+                }
+            }
+        },
+        "ConnectInteg": {
+            "Type": "AWS::ApiGatewayV2::Integration",
+            "Properties": {
+                "ApiId": {
+                    "Ref": "FCAWebSocket"
+                },
+                "Description": "Connect Integration",
+                "IntegrationType": "AWS_PROXY",
+                "IntegrationUri": {
+                    "Fn::Sub": "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnConnectFunction.Arn}/invocations"
+                }
+            }
+        },
+        "DisconnectRoute": {
+            "Type": "AWS::ApiGatewayV2::Route",
+            "Properties": {
+                "ApiId": {
+                    "Ref": "FCAWebSocket"
+                },
+                "RouteKey": "$disconnect",
+                "AuthorizationType": "NONE",
+                "OperationName": "DisconnectRoute",
+                "Target": {
+                    "Fn::Join": [
+                        "/",
+                        [
+                            "integrations",
+                            {
+                                "Ref": "DisconnectInteg"
+                            }
+                        ]
+                    ]
+                }
+            }
+        },
+        "DisconnectInteg": {
+            "Type": "AWS::ApiGatewayV2::Integration",
+            "Properties": {
+                "ApiId": {
+                    "Ref": "FCAWebSocket"
+                },
+                "Description": "Disconnect Integration",
+                "IntegrationType": "AWS_PROXY",
+                "IntegrationUri": {
+                    "Fn::Sub": "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnDisconnectFunction.Arn}/invocations"
+                }
+            }
+        },
+		"SendRoute": {
+            "Type": "AWS::ApiGatewayV2::Route",
+            "Properties": {
+                "ApiId": {
+                    "Ref": "FCAWebSocket"
+                },
+                "RouteKey": "sendmessage",
+                "AuthorizationType": "NONE",
+                "OperationName": "SendRoute",
+                "Target": {
+                    "Fn::Join": [
+                        "/",
+                        [
+                            "integrations",
+                            {
+                                "Ref": "SendInteg"
+                            }
+                        ]
+                    ]
+                }
+            }
+        },
+		"SendInteg": {
+            "Type": "AWS::ApiGatewayV2::Integration",
+            "Properties": {
+                "ApiId": {
+                    "Ref": "FCAWebSocket"
+                },
+                "Description": "Send Integration",
+                "IntegrationType": "AWS_PROXY",
+                "IntegrationUri": {
+                    "Fn::Sub": "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SendMessageFunction.Arn}/invocations"
+                }
+            }
+        },
+        "Stage": {
+            "Type": "AWS::ApiGatewayV2::Stage",
+            "Properties": {
+                "StageName": "Prod",
+                "Description": "Prod Stage",
+                "DeploymentId": {
+                    "Ref": "Deployment"
+                },
+                "ApiId": {
+                    "Ref": "FCAWebSocket"
+                }
+            }
+        },
+        "ConnectionsTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+                "AttributeDefinitions": [
+                    {
+                        "AttributeName": "connectionId",
+                        "AttributeType": "S"
+                    }
+                ],
+                "KeySchema": [
+                    {
+                        "AttributeName": "connectionId",
+                        "KeyType": "HASH"
+                    }
+                ],
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 5,
+                    "WriteCapacityUnits": 5
+                },
+                "SSESpecification": {
+                    "SSEEnabled": true
+                },
+                "TableName": {
+                    "Ref": "TableName"
+                }
+            }
+        },
+        "OnConnectFunction": {
+            "Type": "AWS::Serverless::Function",
+            "Properties": {
+                "CodeUri": "",
+                "Handler": "FCA.API::FCAWS.Handler::OnConnect",
+                "MemorySize": 256,
+				"Timeout": 30,
+                "Runtime": "dotnetcore2.1",
+                "Environment": {
+                    "Variables": {
+                        "TABLE_NAME": {
+                            "Ref": "TableName"
+                        }
+                    }
+                },
+                "Policies": [
+                    {
+                        "DynamoDBCrudPolicy": {
+                            "TableName": {
+                                "Ref": "TableName"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+		"OnConnectPermission": {
+            "Type": "AWS::Lambda::Permission",
+            "DependsOn": [
+                "FCAWebSocket",
+                "OnConnectFunction"
+            ],
+            "Properties": {
+                "Action": "lambda:InvokeFunction",
+               "FunctionName": {
+				"Fn::GetAtt": [
+					"OnConnectFunction",
+					"Arn"
+					 ]
+				 },
+                "Principal": "apigateway.amazonaws.com"
+            }
+        },
+        "OnDisconnectFunction": {
+            "Type": "AWS::Serverless::Function",
+            "Properties": {
+                "CodeUri": "",
+                "Handler": "FCA.API::FCAWS.Handler::OnDisconnect",
+                "MemorySize": 256,
+				"Timeout": 30,
+                "Runtime": "dotnetcore2.1",
+                "Environment": {
+                    "Variables": {
+                        "TABLE_NAME": {
+                            "Ref": "TableName"
+                        }
+                    }
+                },
+                "Policies": [
+                    {
+                        "DynamoDBCrudPolicy": {
+                            "TableName": {
+                                "Ref": "TableName"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+		"OnDisconnectPermission": {
+            "Type": "AWS::Lambda::Permission",
+            "DependsOn": [
+                "FCAWebSocket",
+                "OnDisconnectFunction"
+            ],
+            "Properties": {
+                "Action": "lambda:InvokeFunction",
+                "FunctionName": {
+				"Fn::GetAtt": [
+					"OnDisconnectFunction",
+					"Arn"
+					 ]
+				 },
+                "Principal": "apigateway.amazonaws.com"
+            }
+        },
+        "SendMessageFunction": {
+            "Type": "AWS::Serverless::Function",
+            "Properties": {
+                "CodeUri": "",
+                "Handler": "FCA.API::FCAWS.Handler::OnSendMessage",
+                "MemorySize": 256,
+				"Timeout": 30,
+                "Runtime": "dotnetcore2.1",
+                "Environment": {
+                    "Variables": {
+                        "TABLE_NAME": {
+                            "Ref": "TableName"
+                        }
+                    }
+                },
+                "Policies": [
+                    {
+                        "DynamoDBCrudPolicy": {
+                            "TableName": {
+                                "Ref": "TableName"
+                            }
+                        }
+                    },
+                    {
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Action": [
+                                    "execute-api:ManageConnections"
+                                ],
+                                "Resource": [
+                                     {
+                                        "Fn::Sub": "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ConnectionsTable}"
+									 },
+									 {
+                                        "Fn::Sub": "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${FCAWebSocket}/*"
+								     }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        "SendMessagePermission": {
+            "Type": "AWS::Lambda::Permission",
+            "DependsOn": [
+                "FCAWebSocket",
+                "SendMessageFunction"
+            ],
+            "Properties": {
+                "Action": "lambda:InvokeFunction",
+                "FunctionName":{
+					"Fn::GetAtt": [
+						"SendMessageFunction",
+						"Arn"
+					]},
+                "Principal": "apigateway.amazonaws.com"
+            }
+		},
+		"FCAVersionTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+                "AttributeDefinitions": [
+                    {
+                        "AttributeName": "id",
+                        "AttributeType": "S"
+                    }
+                ],
+                "KeySchema": [
+                    {
+                        "AttributeName": "id",
+                        "KeyType": "HASH"
+                    }
+                ],
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 5,
+                    "WriteCapacityUnits": 5
+                },
+                "SSESpecification": {
+                    "SSEEnabled": true
+                },
+                "StreamSpecification": {
+                    "StreamViewType": "NEW_IMAGE"
+                },
+                "TableName": {
+                    "Ref": "FCAVersion"
+                }
+            }
+        },
+		"UpdateVersionFunction": {
+            "Type": "AWS::Serverless::Function",
+            "Properties": {
+                "CodeUri": "",
+                "Handler": "FCA.API::FCAWS.Handler::UpdateVersion",
+                "MemorySize": 256,
+				"Timeout": 30,
+                "Runtime": "dotnetcore2.1",
+                "Policies": [
+                    {
+                        "DynamoDBCrudPolicy": {
+                            "TableName": {
+                                "Ref": "FCAVersion"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+		"StreamReceiverFunction": {
+            "Type": "AWS::Serverless::Function",
+            "Properties": {
+                "CodeUri": "",
+                "Handler": "FCA.API::FCAWS.Handler::StreamReceiver",
+                "MemorySize": 256,
+				"Timeout": 30,
+                "Runtime": "dotnetcore2.1",
+                "Policies": [
+                    {
+                        "DynamoDBCrudPolicy": {
+                            "TableName": {
+                                "Ref": "TableName"
+                            }
+                        }
+                    },
+					{
+                        "DynamoDBCrudPolicy": {
+                            "TableName": {
+                                "Ref": "FCAVersion"
+                            }
+                        }
+                    },
+					{
+					"Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "logs:CreateLogGroup",
+                                        "logs:CreateLogStream",
+                                        "logs:PutLogEvents"
+                                    ],
+                                    "Resource": "arn:aws:logs:*:*:*"
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "dynamodb:DescribeStream",
+                                        "dynamodb:GetRecords",
+                                        "dynamodb:GetShardIterator",
+                                        "dynamodb:ListStreams"
+                                    ],
+                                    "Resource": "*"
+                                },
+								{
+                                "Effect": "Allow",
+                                "Action": [
+                                    "execute-api:ManageConnections"
+                                ],
+                                "Resource": [
+                                     {
+                                        "Fn::Sub": "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ConnectionsTable}"
+									 },
+									 {
+                                        "Fn::Sub": "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${FCAWebSocket}/*"
+								     }
+                                ]
+                            }
+                            ]
+							}
+                ]
+            }
+		},
+		"FCAVersionTableStream": {
+            "Type": "AWS::Lambda::EventSourceMapping",
+            "Properties": {
+                "BatchSize": 1,
+                "Enabled": true,
+                "EventSourceArn": {
+                    "Fn::GetAtt": [
+                        "FCAVersionTable",
+                        "StreamArn"
+                    ]
+                },
+                "FunctionName": {
+                    "Fn::GetAtt": [
+                        "StreamReceiverFunction",
+                        "Arn"
+                    ]
+                },
+                "StartingPosition": "LATEST"
+            }
+        },
+        "Deployment": {
+            "Type": "AWS::ApiGatewayV2::Deployment",
+            "DependsOn": [
+                "ConnectRoute",
+				"SendRoute",
+                "DisconnectRoute"
+            ],
+            "Properties": {
+                "ApiId": {
+                    "Ref": "FCAWebSocket"
+                }
+            }
+        }
 	},
-
 	"Outputs" : {
 		"ApiURL" : {
 			"Description" : "API endpoint URL for Prod environment",
@@ -73,6 +571,82 @@
 		},
 		"S3ProxyBucket" : {
 			"Value" : { "Fn::If" : ["CreateS3Bucket", {"Ref":"Bucket"}, { "Ref" : "BucketName" } ] }
-		}
+		},
+		"ConnectionsTableArn": {
+            "Description": "Connections table ARN",
+            "Value": {
+                "Fn::GetAtt": [
+                    "ConnectionsTable",
+                    "Arn"
+                ]
+            }
+        },
+		"FCAVersionTableArn": {
+            "Description": "FCA Version table ARN",
+            "Value": {
+                "Fn::GetAtt": [
+                    "FCAVersionTable",
+                    "Arn"
+                ]
+            }
+        },
+		"OnConnectFunctionArn": {
+            "Description": "OnConnect function ARN",
+            "Value": {
+                "Fn::GetAtt": [
+                    "OnConnectFunction",
+                    "Arn"
+                ]
+            }
+        },
+        "OnDisconnectFunctionArn": {
+            "Description": "OnDisconnect function ARN",
+            "Value": {
+                "Fn::GetAtt": [
+                    "OnDisconnectFunction",
+                    "Arn"
+                ]
+            }
+        },
+        "SendMessageFunctionArn": {
+            "Description": "SendMessage function ARN",
+            "Value": {
+                "Fn::GetAtt": [
+                    "SendMessageFunction",
+                    "Arn"
+                ]
+            }
+        },
+        "UpdateVersionFunctionArn": {
+            "Description": "Update Version Function Arn",
+            "Value": {
+                "Fn::GetAtt": [
+                    "UpdateVersionFunction",
+                    "Arn"
+                ]
+            }
+        },
+		"FCAWebSocketURI": {
+            "Description": "The WSS Protocol URI to connect to",
+            "Value": {
+                "Fn::Join": [
+                    "",
+                    [
+                        "wss://",
+                        {
+                            "Ref": "FCAWebSocket"
+                        },
+                        ".execute-api.",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        ".amazonaws.com/",
+                        {
+                            "Ref": "Stage"
+                        }
+                    ]
+                ]
+            }
+        }
 	}
 }

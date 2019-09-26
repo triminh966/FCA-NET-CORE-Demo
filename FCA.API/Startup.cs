@@ -58,11 +58,11 @@ namespace FCA.API
             services.AddAWSService<IAmazonDynamoDB>();
 
             // Add Authentication
-            services.AddAuthentication(o => o.DefaultScheme = JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
-            {
-                options.Audience = _fcaSecrets.ClientId;
-                options.Authority = _fcaSecrets.AuthorityUrl;
-            });
+            //services.AddAuthentication(o => o.DefaultScheme = JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
+            //{
+            //    options.Audience = _fcaSecrets.ClientId;
+            //    options.Authority = _fcaSecrets.AuthorityUrl;
+            //});
 
             services.AddCors(options =>
             {
@@ -111,7 +111,7 @@ namespace FCA.API
             app.UseCors("AllowMyOrigin");
 
             app.UseHttpsRedirection();
-            app.UseAuthentication();
+            //app.UseAuthentication();
             app.UseMvc();
         }
     }

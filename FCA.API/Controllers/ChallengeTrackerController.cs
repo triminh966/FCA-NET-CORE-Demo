@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FCA.API.Controllers
 {
-    [Authorize]
+    //[Authorize]
     [Route("api/challenge-tracker")]
     [ApiController]
     public class ChallengeTrackerController : ControllerBase

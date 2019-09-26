@@ -60,7 +60,7 @@ namespace FCA.API.Services
 
             }
 
-            return results;
+            return null;
         }
     }
 }

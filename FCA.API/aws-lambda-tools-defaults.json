@@ -6,13 +6,13 @@
         "dotnet lambda help",
         "All the command line options for the Lambda command can be specified in this file."
     ],
-    "profile"     : "FCA",
+    "profile"     : "tvbee",
     "region"      : "us-east-1",
     "configuration" : "Release",
     "framework"     : "netcoreapp2.1",
     "s3-prefix"     : "FCA.API/",
     "template"      : "serverless.template",
-    "template-parameters" : "\"ShouldCreateBucket\"=\"true\";\"BucketName\"=\"\"",
-    "s3-bucket"           : "dev-fca-donetcore-api",
-    "stack-name"          : "FCA-DonetCore-API"
+    "template-parameters" : "\"ShouldCreateBucket\"=\"true\";\"BucketName\"=\"\";\"TableName\"=\"WebConnection\"",
+    "s3-bucket"           : "fca-donetcore-dev-v2019",
+    "stack-name"          : "FCA-Donet-core-API-v2019"
 }

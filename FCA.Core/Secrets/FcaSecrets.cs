@@ -27,24 +27,24 @@ namespace FCA.Core.Secrets
 
         private void Initialise()
         {
-            if (_environment.IsDevelopment())
-            {
+            //if (_environment.IsDevelopment())
+            //{
                 ReadLocalSecret();
-            }
-            else
-            {
-                OtfRdsDataFca = _secretManager.RetrieveSecretValue(Constants.OtfRdsDataFcaWriter);
-                OtfRdsDataOTbase = _secretManager.RetrieveSecretValue(Constants.OtfRdsDataOtbaseWriter);
-                AwsAccessKey = _secretManager.RetrieveSecretValue(Constants.AwsAccessKey);
-                AwsSecretKey = _secretManager.RetrieveSecretValue(Constants.AwsSecretKey);
-                AwsRegion = RegionEndpoint.GetBySystemName(_secretManager.RetrieveSecretValue(Constants.AwsRegion));
-                AwsCredentials = new BasicAWSCredentials(AwsAccessKey, AwsSecretKey);
-                AwsDynamoPrefix = _secretManager.RetrieveSecretValue(Constants.AwsDynamoPrefix);
-                DefaultDbOperationConfig = new DynamoDBOperationConfig { SkipVersionCheck = false, ConsistentRead = true, TableNamePrefix = AwsDynamoPrefix };
-                ClientId = _secretManager.RetrieveSecretValue(Constants.CognitoClientIdKey);
-                AuthorityUrl = _secretManager.RetrieveSecretValue(Constants.CognitoAuthorityKey);
-                UserPoolId = _secretManager.RetrieveSecretValue(Constants.CognitoUserPoolIdKey);
-            }
+            //}
+            //else
+            //{
+            //    OtfRdsDataFca = _secretManager.RetrieveSecretValue(Constants.OtfRdsDataFcaWriter);
+            //    OtfRdsDataOTbase = _secretManager.RetrieveSecretValue(Constants.OtfRdsDataOtbaseWriter);
+            //    AwsAccessKey = _secretManager.RetrieveSecretValue(Constants.AwsAccessKey);
+            //    AwsSecretKey = _secretManager.RetrieveSecretValue(Constants.AwsSecretKey);
+            //    AwsRegion = RegionEndpoint.GetBySystemName(_secretManager.RetrieveSecretValue(Constants.AwsRegion));
+            //    AwsCredentials = new BasicAWSCredentials(AwsAccessKey, AwsSecretKey);
+            //    AwsDynamoPrefix = _secretManager.RetrieveSecretValue(Constants.AwsDynamoPrefix);
+            //    DefaultDbOperationConfig = new DynamoDBOperationConfig { SkipVersionCheck = false, ConsistentRead = true, TableNamePrefix = AwsDynamoPrefix };
+            //    ClientId = _secretManager.RetrieveSecretValue(Constants.CognitoClientIdKey);
+            //    AuthorityUrl = _secretManager.RetrieveSecretValue(Constants.CognitoAuthorityKey);
+            //    UserPoolId = _secretManager.RetrieveSecretValue(Constants.CognitoUserPoolIdKey);
+            //}
         }
 
         private void ReadLocalSecret()

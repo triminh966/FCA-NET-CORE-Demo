@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28307.421
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29306.81
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FCA.API", "FCA.API\FCA.API.csproj", "{76E1E68C-E868-43B2-BFF6-D4035DF867FB}"
 EndProject
@@ -9,9 +9,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FCA.API.Tests", "FCA.API.Te
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Core", "Core", "{B2C993B7-BB05-4A24-9F42-58FD8E29024A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FCA.Data", "FCA.Data\FCA.Data.csproj", "{BD235EB4-0CC4-4FD4-A913-32E0314CBCBF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FCA.Data", "FCA.Data\FCA.Data.csproj", "{BD235EB4-0CC4-4FD4-A913-32E0314CBCBF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FCA.Core", "FCA.Core\FCA.Core.csproj", "{26572CB3-079D-40B0-B213-91FB1D38DF18}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FCA.Core", "FCA.Core\FCA.Core.csproj", "{26572CB3-079D-40B0-B213-91FB1D38DF18}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
