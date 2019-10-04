@@ -22,13 +22,19 @@ namespace FCAWS
         {
             try
             {
-                _issuer = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_JjenpQv4w";
-                _audience = "qqvfrtr9fs1k2mtbbcl0nv7um";
+                //us-east-1_qswGT8ImC match your user pool id
+                _issuer = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_qswGT8ImC";
+                //app client id
+                _audience = "34ijboia9jc7k4rqbcuu7klo10";
+                //If you are only accepting the access token in your web APIs, its value must be access.
+                //If you are only using the ID token, its value must be id.
+                //If you are using both ID and access tokens, the token_use claim must be either id or access
                 _tokenUse = "id";
 
-                var kid1 = "RszJ4abPHdTvPeUYfeJgQMRQFmoV28T4A85d1l/Qe08=";
+                //Json web key: https://cognito-idp.{region}.amazonaws.com/{userPoolId}/.well-known/jwks.json.
+                var kid1 = "QjeLVmm7EgFtEoJwpNp4kvVGLqI124dXi4uG371TyJ0=";
                 var e1 = "AQAB";
-                var n1 = "lST0mtdNSRBr09mDQnrXDMIgCJ6WIHalE1A-4ePraNqMabn_RukZGGbw-kGzdqi6njDp0P4CCRW6H8qGRYikrMt1ezAiX_KfG1uVONhoIsLGHTybRIKj_x1X__V27FGQy2NFh3JsPiKYCPaNDU0afsPqSdLopMnc_bzBdPZAfOnbR7PliyHJ-lolwUyM6AqSyGioUThYkFuqa_ywI0W0zAyNC2KfyBryN0jgXVp5M-82N86YpIGx9ecVi79l_5y2nnKNIJHf_Oj_uZFtLV4HstlQ5lizbbvxtTXDca8SIa9pBx_ff20xj6SKHJXa2CHG8UaBva4eyS_2i2gJTwxNXQ";
+                var n1 = "qVVICGrJqqSaXbjF5ZHxZoHBgbDMlFgq7vQfUZXyoFM8GFnG_1q59jbRPtoqWTwWNNhAqVGv9AhxjnHUJ2Vqks0lSLdO1jlEJ4ECJOf5wb9c2Vo8U524l-rs2AXT0kA7G_uG_QweR_8E7Enr2mZjCaxVK0MO-KQspSLjkuFEUpCoVpjrSeYXQn-PD_niCTuD3aSDKQO-nKSVifYn56XuJGogfp4Mp8f2o0Qm0NNketRgmG9rIZtOIKV5AOatBCxYFQ57E2v-AhetBeR4t3fFclutXTQNeFLD2dy_UI9CWgBajQw-QX12ciu8aM0JL3MW8tQa3yd1G-ASNYLXl_C5rQ";
                 if (!string.IsNullOrEmpty(kid1))
                 {
                     _keys.Add(new RsaSecurityKey(new RSAParameters { Exponent = Base64UrlEncoder.DecodeBytes(e1), Modulus = Base64UrlEncoder.DecodeBytes(n1) })
@@ -37,9 +43,9 @@ namespace FCAWS
                     });
                 }
 
-                var kid2 = "HDr4mXIRGSS8YvGWBRF8dqkGh5akV3gl3u1NYMJpcH4=";
+                var kid2 = "vyHa7qUxNdIZBNgMsG+QBwYl4YigwMC/N/+Fgj2flv8=";
                 var e2 = "AQAB";
-                var n2 = "szZFPShF1HE3GaU_ZPAQyniVYwYOXblv1W4HwHmi2hB-MS8LsFxwY_i50CXVJTg_oZ_tfkPns6wjfVy-IiHE2f6cnlBq8pgSYZcXOt_NnC70caERBxy5uSl9mNxCAqnIDmHx86b5j0vJOpwS1UvbYRRBREXd-u4akCnsIJm0P4b9Vc2Nx_xD_AKT-6FO9PmtBv8wCULOQmPkbev395FpbO1q2KgxGEIJdFu5Jh1w1aI965GgwjEU-M-H6152vDTZIJee9I21Ah4GAn-d8gveflcV4TDmsTFosmbcKDoxA0Qf-IMY24VyJ7ZuGXjfkyLum60v4EngD3pFyo-770mpPQ";
+                var n2 = "gvNcubvQOhTLPSjTfX00wY1jjyigV0_myzQjTaol7kCCti9jaWoNVuxtJ3pBB21-fY0d0OD-4Yru5uZ2b4wM3usCaF_yQmje_atZGxJNJitAS--hAewoHgqoZFqCnDbYyXzjzKT5bW2ND7R4vyC4Yc4oRe7XHKQpG-2PKgThbHYnIMp4Iqk0yqsKLHfK-3TX0ZEteyOUWTKFGyy26a_CzLY99Ys4-kBSUFLHWyTRH0x5SmIMX4MMGVvABDyoCKw-PS8UN8RWZnxW6cRarOaSPF40FIkXTgZ-sDKiA4lZPgie4VWJjuP8NnWp1kcFKImzfdnCAZCLmA9poZnO7itTTw";
                 if (!string.IsNullOrEmpty(kid2))
                 {
                     _keys.Add(new RsaSecurityKey(new RSAParameters { Exponent = Base64UrlEncoder.DecodeBytes(e2), Modulus = Base64UrlEncoder.DecodeBytes(n2) })
@@ -82,7 +88,6 @@ namespace FCAWS
                     };
                     var tokenHandler = new JwtSecurityTokenHandler();
                     var result = tokenHandler.ValidateToken(tokenToValidate, tokenValidationParameters, out _);
-
                     var iss = result.Claims.FirstOrDefault(x => x.Type == "iss")?.Value;
                     var aud = result.Claims.FirstOrDefault(x => x.Type == "aud")?.Value;
                     var tokenUse = result.Claims.FirstOrDefault(x => x.Type == "token_use")?.Value;
