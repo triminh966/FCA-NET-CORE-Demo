@@ -200,16 +200,19 @@ namespace FCAWS
             };
         }
 
-        public async Task<APIGatewayProxyResponse> UpdateVersion(FCAVersion data, ILambdaContext context)
+        public async Task<APIGatewayProxyResponse> UpdateVersion(APIGatewayProxyRequest request, ILambdaContext context)
         {
             try
             {
+                context.Logger.LogLine($"request: {request.Body}");
+                var data = JsonConvert.DeserializeObject<FCAVersion>(request.Body);
+                context.Logger.LogLine($"API Gateway message: {request.Body}");
                 var ddbRequest = new PutItemRequest
                 {
                     TableName = Constants.APP_VERSION_TABLE,
                     Item = new Dictionary<string, AttributeValue>
                     {
-                        {Constants.Id, new AttributeValue{ S = data.id}},
+                        {Constants.Id, new AttributeValue{ S =data.id}},
                         {Constants.ApplicationId, new AttributeValue{ S = data.applicationId}},
                         {Constants.Version, new AttributeValue{ S = data.version}}
                     }
@@ -252,7 +255,7 @@ namespace FCAWS
 
             var apiClient = new AmazonApiGatewayManagementApiClient(new AmazonApiGatewayManagementApiConfig
             {
-                ServiceURL = "https://ocrkquup9e.execute-api.us-east-1.amazonaws.com/Prod"
+                ServiceURL = "https://rpi4kpxg33.execute-api.us-east-1.amazonaws.com/Prod"
             });
             return await _broadcast(scanResponse, apiClient, stream, context);
         }
