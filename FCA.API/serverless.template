@@ -197,41 +197,6 @@
                 }
             }
         },
-		"SendRoute": {
-            "Type": "AWS::ApiGatewayV2::Route",
-            "Properties": {
-                "ApiId": {
-                    "Ref": "FCAWebSocket"
-                },
-                "RouteKey": "sendmessage",
-                "AuthorizationType": "NONE",
-                "OperationName": "SendRoute",
-                "Target": {
-                    "Fn::Join": [
-                        "/",
-                        [
-                            "integrations",
-                            {
-                                "Ref": "SendInteg"
-                            }
-                        ]
-                    ]
-                }
-            }
-        },
-		"SendInteg": {
-            "Type": "AWS::ApiGatewayV2::Integration",
-            "Properties": {
-                "ApiId": {
-                    "Ref": "FCAWebSocket"
-                },
-                "Description": "Send Integration",
-                "IntegrationType": "AWS_PROXY",
-                "IntegrationUri": {
-                    "Fn::Sub": "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SendMessageFunction.Arn}/invocations"
-                }
-            }
-        },
         "Stage": {
             "Type": "AWS::ApiGatewayV2::Stage",
             "Properties": {
@@ -358,66 +323,6 @@
                 "Principal": "apigateway.amazonaws.com"
             }
         },
-        "SendMessageFunction": {
-            "Type": "AWS::Serverless::Function",
-            "Properties": {
-                "CodeUri": "",
-                "Handler": "FCA.API::FCAWS.Handler::OnSendMessage",
-                "MemorySize": 256,
-				"Timeout": 30,
-                "Runtime": "dotnetcore2.1",
-                "Environment": {
-                    "Variables": {
-                        "TABLE_NAME": {
-                            "Ref": "TableName"
-                        }
-                    }
-                },
-                "Policies": [
-                    {
-                        "DynamoDBCrudPolicy": {
-                            "TableName": {
-                                "Ref": "TableName"
-                            }
-                        }
-                    },
-                    {
-                        "Statement": [
-                            {
-                                "Effect": "Allow",
-                                "Action": [
-                                    "execute-api:ManageConnections"
-                                ],
-                                "Resource": [
-                                     {
-                                        "Fn::Sub": "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ConnectionsTable}"
-									 },
-									 {
-                                        "Fn::Sub": "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${FCAWebSocket}/*"
-								     }
-                                ]
-                            }
-                        ]
-                    }
-                ]
-            }
-        },
-        "SendMessagePermission": {
-            "Type": "AWS::Lambda::Permission",
-            "DependsOn": [
-                "FCAWebSocket",
-                "SendMessageFunction"
-            ],
-            "Properties": {
-                "Action": "lambda:InvokeFunction",
-                "FunctionName":{
-					"Fn::GetAtt": [
-						"SendMessageFunction",
-						"Arn"
-					]},
-                "Principal": "apigateway.amazonaws.com"
-            }
-		},
 		"FCAVersionTable": {
             "Type": "AWS::DynamoDB::Table",
             "Properties": {
@@ -448,6 +353,65 @@
                 }
             }
         },
+		 "CognitoUserPool": {
+			"Type": "AWS::Cognito::UserPool",
+			"Properties": {
+				"MfaConfiguration": "OFF",
+				"UserPoolName": "my-websocket",
+				"UsernameAttributes": [
+					"email"
+				],
+				"AutoVerifiedAttributes" : [ "email"],
+				 "Policies": {
+					"PasswordPolicy": {
+						"MinimumLength": 6,
+						"RequireLowercase": false,
+						"RequireNumbers": true,
+						"RequireSymbols": false,
+						"RequireUppercase": true
+						}
+					}
+			}
+		},
+		"CognitoUserPoolClient": {
+			"Type": "AWS::Cognito::UserPoolClient",
+			"Properties": {
+				"ClientName": "my-websocket-client",
+				"GenerateSecret": false,
+				"UserPoolId": {
+					"Ref": "CognitoUserPool"
+				},
+				"ExplicitAuthFlows":[
+					"USER_PASSWORD_AUTH"
+				],				
+				"AllowedOAuthFlows" : ["code"],
+				"AllowedOAuthFlowsUserPoolClient" : true,
+				"AllowedOAuthScopes" : [ "email","openid" ],
+				"CallbackURLs" : [ "https://example.com/"],
+				"SupportedIdentityProviders":["COGNITO"]
+			}
+		},
+		"MyApi": {
+			"Type": "AWS::Serverless::Api",
+			"Properties": {
+				"Name": "MyApi",
+				"StageName":"Prod",
+				"Cors": "'*'",
+				"Auth": {
+					"DefaultAuthorizer": "MyCognitoAuthorizer",
+					"Authorizers": {
+						"MyCognitoAuthorizer": {
+							"UserPoolArn": {
+								"Fn::GetAtt": [
+									"CognitoUserPool",
+									"Arn"
+								]
+							}
+						}
+					}
+				}
+			}
+		},
 		"UpdateVersionFunction": {
             "Type": "AWS::Serverless::Function",
             "Properties": {
@@ -464,7 +428,19 @@
                             }
                         }
                     }
-                ]
+                ],
+				"Events": {
+					"ApiResource": {
+						"Type": "Api",
+						"Properties": {
+							"Path": "/updateVersion",
+							"Method": "POST",
+							 "RestApiId": {
+								"Ref": "MyApi"
+							}
+						}
+					}
+				}
             }
         },
 		"StreamReceiverFunction": {
@@ -554,7 +530,6 @@
             "Type": "AWS::ApiGatewayV2::Deployment",
             "DependsOn": [
                 "ConnectRoute",
-				"SendRoute",
                 "DisconnectRoute"
             ],
             "Properties": {
@@ -604,15 +579,6 @@
             "Value": {
                 "Fn::GetAtt": [
                     "OnDisconnectFunction",
-                    "Arn"
-                ]
-            }
-        },
-        "SendMessageFunctionArn": {
-            "Description": "SendMessage function ARN",
-            "Value": {
-                "Fn::GetAtt": [
-                    "SendMessageFunction",
                     "Arn"
                 ]
             }
