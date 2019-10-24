@@ -464,11 +464,6 @@
                 "MemorySize": 256,
 				"Timeout": 30,
                 "Runtime": "dotnetcore2.1",
-				"Environment":{
-					"Variables":{
-						"ServiceURL":"https://ocrkquup9e.execute-api.us-east-1.amazonaws.com/Prod"
-					}
-				},
                 "Policies": [
                     {
                         "DynamoDBCrudPolicy": {

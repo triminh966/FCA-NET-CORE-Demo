@@ -163,7 +163,7 @@ namespace FCAWS
             try
             {
                 var body = JsonConvert.DeserializeObject<FCAVersion>(request.Body);
-                context.Logger.LogLine($"request: {body}");
+                context.Logger.LogLine($"request body : {request.Body}");
                 var ddbRequest = new PutItemRequest
                 {
                     TableName = Constants.APP_VERSION_TABLE,
@@ -212,7 +212,7 @@ namespace FCAWS
 
             var apiClient = new AmazonApiGatewayManagementApiClient(new AmazonApiGatewayManagementApiConfig
             {
-                ServiceURL = Environment.GetEnvironmentVariable("ServiceURL")
+                ServiceURL = "https://rpi4kpxg33.execute-api.us-east-1.amazonaws.com/Prod"
             });
             return await _broadcast(scanResponse, apiClient, stream, context);
         }
