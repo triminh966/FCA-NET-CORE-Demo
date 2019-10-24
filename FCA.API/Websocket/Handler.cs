@@ -35,15 +35,16 @@ namespace FCAWS
                 // Using JObject instead of APIGatewayProxyRequest till APIGatewayProxyRequest gets updated with DomainName and ConnectionId 
                 var connectionId = request.RequestContext.ConnectionId;
                 context.Logger.LogLine($"ConnectionId: {connectionId}");
-
                 var body = JObject.FromObject(request).ToString();
+                var FCA_TOPIC_ID = "c0a5bf76-bd5f-4f0e-9a91-68e183b4f01c";
                 var ddbRequest = new PutItemRequest
                 {
-                    TableName = Constants.TABLE_NAME,
+                    TableName = Constants.WEBSOCKET_TABLE,
                     Item = new Dictionary<string, AttributeValue>
                     {
                         {Constants.ConnectionIdField, new AttributeValue{ S = connectionId}},
-                        {Constants.RequestBodyField, new AttributeValue{ S = body}}
+                        {Constants.RequestBodyField, new AttributeValue{ S = body}},
+                        {Constants.PublicationId, new AttributeValue{ S = FCA_TOPIC_ID}}
                     }
                 };
 
@@ -76,7 +77,7 @@ namespace FCAWS
                 var body = JObject.FromObject(request).ToString();
                 var ddbRequest = new DeleteItemRequest
                 {
-                    TableName = Constants.TABLE_NAME,
+                    TableName = Constants.WEBSOCKET_TABLE,
                     Key = new Dictionary<string, AttributeValue>
                     {
                         {Constants.ConnectionIdField, new AttributeValue {S = connectionId}}
@@ -102,49 +103,6 @@ namespace FCAWS
                 };
             }
         }
-        public async Task<APIGatewayProxyResponse> OnSendMessage(APIGatewayProxyRequest request, ILambdaContext context)
-        {
-            try
-            {
-                // Using JObject instead of APIGatewayProxyRequest till APIGatewayProxyRequest gets updated with DomainName and ConnectionId 
-                var domainName = request.RequestContext.DomainName;
-                var stage = request.RequestContext.Stage;
-                var endpoint = $"https://{domainName}/{stage}";
-                context.Logger.LogLine($"API Gateway management endpoint: {endpoint}");
-
-                var message = JsonConvert.DeserializeObject<JObject>(request.Body);
-                var data = message["data"]?.ToString();
-                context.Logger.LogLine($"API Gateway message: {message}");
-                var stream = new MemoryStream(UTF8Encoding.UTF8.GetBytes(data));
-
-                var scanRequest = new ScanRequest
-                {
-                    TableName = Constants.TABLE_NAME,
-                    ProjectionExpression = Constants.ConnectionIdField
-                };
-
-                var scanResponse = await _ddbClient.ScanAsync(scanRequest);
-
-                var apiClient = new AmazonApiGatewayManagementApiClient(new AmazonApiGatewayManagementApiConfig
-                {
-                    ServiceURL = endpoint
-                });
-
-                return await _broadcast(scanResponse, apiClient, stream, context);
-            }
-            catch (Exception e)
-            {
-                context.Logger.LogLine("Error disconnecting: " + e.Message);
-                context.Logger.LogLine(e.StackTrace);
-                return new APIGatewayProxyResponse
-                {
-                    StatusCode = 500,
-                    Body = $"Failed to send message: {e.Message}"
-                };
-            }
-
-        }
-
         private async Task<APIGatewayProxyResponse> _broadcast(ScanResponse list, AmazonApiGatewayManagementApiClient apiClient, MemoryStream stream, ILambdaContext context)
         {
             var count = 0;
@@ -175,7 +133,7 @@ namespace FCAWS
                     {
                         var ddbDeleteRequest = new DeleteItemRequest
                         {
-                            TableName = Constants.TABLE_NAME,
+                            TableName = Constants.WEBSOCKET_TABLE,
                             Key = new Dictionary<string, AttributeValue>
                                 {
                                     {Constants.ConnectionIdField, new AttributeValue {S = connectionId}}
@@ -239,7 +197,7 @@ namespace FCAWS
         {
             var scanRequest = new ScanRequest
             {
-                TableName = Constants.TABLE_NAME,
+                TableName = Constants.WEBSOCKET_TABLE,
                 ProjectionExpression = Constants.ConnectionIdField
             };
 
@@ -252,7 +210,7 @@ namespace FCAWS
 
             var apiClient = new AmazonApiGatewayManagementApiClient(new AmazonApiGatewayManagementApiConfig
             {
-                ServiceURL = "https://ocrkquup9e.execute-api.us-east-1.amazonaws.com/Prod"
+                ServiceURL = Environment.GetEnvironmentVariable("ServiceURL")
             });
             return await _broadcast(scanResponse, apiClient, stream, context);
         }

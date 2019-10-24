@@ -1,6 +1,5 @@
 ﻿using Amazon.Lambda.APIGatewayEvents;
 using Amazon.Lambda.Core;
-using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json.Linq;
 using System;
@@ -23,18 +22,18 @@ namespace FCAWS
             try
             {
                 //us-east-1_qswGT8ImC match your user pool id
-                _issuer = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_QPPfSKreN";
+                _issuer = Environment.GetEnvironmentVariable("CognitoIssuer");
                 //app client id
-                _audience = "pt57be8gffvg40nuhntee1k3a";
+                _audience = Environment.GetEnvironmentVariable("CognitoAudience");
                 //If you are only accepting the access token in your web APIs, its value must be access.
                 //If you are only using the ID token, its value must be id.
                 //If you are using both ID and access tokens, the token_use claim must be either id or access
-                _tokenUse = "id";
+                _tokenUse = Environment.GetEnvironmentVariable("CognitoTokenUse");
 
                 //Json web key: https://cognito-idp.{region}.amazonaws.com/{userPoolId}/.well-known/jwks.json.
-                var kid1 = "+o+Bniqg5wsp8Xyk1B1CVW7W2nCpWWna/CK6ZAAK0eU=";
-                var e1 = "AQAB";
-                var n1 = "hVKyZCeAZAeAdOeLnz5tFJH91mZk_kypEt0KzTp9PXP-GdqDxiKh4YvMWMNyyzuhzhGcpQxvG3Vg8PF6ReCyWYM2ROJYKElNaEiocuTsK99QTC37TJR-U5HQPT4tolJts7tOAf8sFa0AwpD9WiepOtAhk2mj3OMa-WEa3YxpK2ucmoPHWNyeZxjFskqq72Zvyuf8BcXmPjsv4agNyi9Yl0FV8EqQyzWVrAasFBpdpzkJre98jkXbofyfPB9fRLmr65e9CAWCUdWQ0H4bZc5DC2-exF09laWnCRx_UNd3ZE_5T2q9OSsb7tc1k33jnMw59Zi4nKKGyMDSSSixT1HonQ";
+                var kid1 = Environment.GetEnvironmentVariable("Kid1");
+                var e1 = Environment.GetEnvironmentVariable("E1");
+                var n1 = Environment.GetEnvironmentVariable("N1");
                 if (!string.IsNullOrEmpty(kid1))
                 {
                     _keys.Add(new RsaSecurityKey(new RSAParameters { Exponent = Base64UrlEncoder.DecodeBytes(e1), Modulus = Base64UrlEncoder.DecodeBytes(n1) })
@@ -43,9 +42,9 @@ namespace FCAWS
                     });
                 }
 
-                var kid2 = "mwpBgLy7t+he432sb5TQGYL8MXwuYM1aYT6IYQuNrKg=";
-                var e2 = "AQAB";
-                var n2 = "o_pfAb51h2uYGSkyjgArQX7dyECCoXOQBjaRmXoe4pM-F3Tg7Mf5QOImqusLqMMzrz8JPZsGN7WOaaGgbGplboA0VL86L1d7T5cllRZFAq9FArIq0ED_1l8IxGGWELvSaTfflYL-GyRfgxExzgXepBZP7CIAlBYyzavxMt_O6PXPFPrqs9aX6Mr-t6IQgBqOGfRlAVN9BU8z-6Wh-w_gW1D7aYkvgMWle2E_Vu5yE6bdxEUTVVkMXQ8dP4i-7W2Tyki8D1xXOCGSA3sRA5a5bS07Uz6sNJ_6yEmTzhrvfmWXjd58DBZhyMY0uiJlAbrkJBLpdLIV3IDa0CIbBx5yWQ";
+                var kid2 = Environment.GetEnvironmentVariable("Kid2");
+                var e2 = Environment.GetEnvironmentVariable("E2");
+                var n2 = Environment.GetEnvironmentVariable("N2");
                 if (!string.IsNullOrEmpty(kid2))
                 {
                     _keys.Add(new RsaSecurityKey(new RSAParameters { Exponent = Base64UrlEncoder.DecodeBytes(e2), Modulus = Base64UrlEncoder.DecodeBytes(n2) })
