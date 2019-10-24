@@ -158,18 +158,20 @@ namespace FCAWS
             };
         }
 
-        public async Task<APIGatewayProxyResponse> UpdateVersion(FCAVersion data, ILambdaContext context)
+        public async Task<APIGatewayProxyResponse> UpdateVersion(APIGatewayProxyRequest request, ILambdaContext context)
         {
             try
             {
+                var body = JsonConvert.DeserializeObject<FCAVersion>(request.Body);
+                context.Logger.LogLine($"request: {body}");
                 var ddbRequest = new PutItemRequest
                 {
                     TableName = Constants.APP_VERSION_TABLE,
                     Item = new Dictionary<string, AttributeValue>
                     {
-                        {Constants.Id, new AttributeValue{ S = data.id}},
-                        {Constants.ApplicationId, new AttributeValue{ S = data.applicationId}},
-                        {Constants.Version, new AttributeValue{ S = data.version}}
+                        {Constants.Id, new AttributeValue{ S = body.id}},
+                        {Constants.ApplicationId, new AttributeValue{ S = body.applicationId}},
+                        {Constants.Version, new AttributeValue{ S = body.version}}
                     }
                 };
 
