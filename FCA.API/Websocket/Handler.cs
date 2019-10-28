@@ -212,7 +212,7 @@ namespace FCAWS
 
             var apiClient = new AmazonApiGatewayManagementApiClient(new AmazonApiGatewayManagementApiConfig
             {
-                ServiceURL = "https://rpi4kpxg33.execute-api.us-east-1.amazonaws.com/Prod"
+                ServiceURL = Environment.GetEnvironmentVariable("ServiceURL")
             });
             return await _broadcast(scanResponse, apiClient, stream, context);
         }

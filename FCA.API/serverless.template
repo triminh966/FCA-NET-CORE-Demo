@@ -464,6 +464,11 @@
                 "MemorySize": 256,
 				"Timeout": 30,
                 "Runtime": "dotnetcore2.1",
+				"Environment":{
+					"Variables":{
+						"ServiceURL":"https://rpi4kpxg33.execute-api.us-east-1.amazonaws.com/Prod"
+						}
+				},
                 "Policies": [
                     {
                         "DynamoDBCrudPolicy": {
