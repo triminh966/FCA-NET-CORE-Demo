@@ -1,636 +1,1629 @@
 {
-	"AWSTemplateFormatVersion" : "2010-09-09",
-	"Transform" : "AWS::Serverless-2016-10-31",
-	"Description" : "An AWS Serverless Application that uses the ASP.NET Core framework running in Amazon Lambda.",
-
-	"Parameters" : {
-		"ShouldCreateBucket" : {
-			"Type" : "String",
-			"AllowedValues" : ["true", "false"],
-			"Description" : "If true then the S3 bucket that will be proxied will be created with the CloudFormation stack."
-		},  
-		"BucketName" : {
-			"Type" : "String",
-			"Description" : "Name of S3 bucket that will be proxied. If left blank a name will be generated.",
-			"MinLength" : "0"
-		},
-		"TableName": {
-            "Type": "String",
-            "Default": "WebConnection",
-            "Description": "(Required) The name of the new DynamoDB to store connection identifiers for each connected clients. Minimum 3 characters",
-            "MinLength": 3,
-            "MaxLength": 50
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Transform": "AWS::Serverless-2016-10-31",
+  "Description": "An AWS Serverless Application that uses the ASP.NET Core framework running in Amazon Lambda.",
+  "Parameters": {
+    "ShouldCreateBucket": {
+      "Type": "String",
+      "AllowedValues": [
+        "true",
+        "false"
+      ],
+      "Description": "If true then the S3 bucket that will be proxied will be created with the CloudFormation stack."
+    },
+    "BucketName": {
+      "Type": "String",
+      "Description": "Name of S3 bucket that will be proxied. If left blank a name will be generated.",
+      "MinLength": "0"
+    },
+    "TableName": {
+      "Type": "String",
+      "Default": "WebConnection",
+      "Description": "(Required) The name of the new DynamoDB to store connection identifiers for each connected clients. Minimum 3 characters",
+      "MinLength": 3,
+      "MaxLength": 50
+    },
+    "AppVersion": {
+      "Type": "String",
+      "Default": "AppVersion",
+      "Description": "(Required) The name of the new DynamoDB to store version application."
+    },
+    "VPCEnvironment": {
+      "Type": "String",
+      "Default": "Dev",
+      "AllowedValues": [
+        "Dev",
+        "Sit",
+        "Prod"
+      ],
+      "Description": "VPC environment to identify resources with."
+    }
+  },
+  "Conditions": {
+    "CreateS3Bucket": {
+      "Fn::Equals": [
+        {
+          "Ref": "ShouldCreateBucket"
         },
-		"FCAVersion": {
-            "Type": "String",
-            "Default": "FCAVersion",
-            "Description": "(Required) The name of the new DynamoDB to store version application."
-        }
-	},
-
-	"Conditions" : {
-		"CreateS3Bucket" : {"Fn::Equals" : [{"Ref" : "ShouldCreateBucket"}, "true"]},
-		"BucketNameGenerated" : {"Fn::Equals" : [{"Ref" : "BucketName"}, ""]}
-	},
-
-	"Resources" : {
-			"AspNetCoreFunction" : {
-				"Type" : "AWS::Serverless::Function",
-				"Properties": {
-				"Handler": "FCA.API::FCA.API.LambdaEntryPoint::FunctionHandlerAsync",
-				"Runtime": "dotnetcore2.1",
-				"CodeUri": "",
-				"MemorySize": 256,
-				"Timeout": 30,
-				"Role": null,
-				"Policies": [ "AWSLambdaFullAccess" ],
-				"Environment" : {
-					"Variables" : {
-						"AppS3Bucket" : { "Fn::If" : ["CreateS3Bucket", {"Ref":"Bucket"}, { "Ref" : "BucketName" } ] }
-					}
-				},
-				"Events": {
-					"ProxyResource": {
-						"Type": "Api",
-						"Properties": {
-							"Path": "/{proxy+}",
-							"Method": "ANY"
-						}
-					},
-					"RootResource": {
-						"Type": "Api",
-						"Properties": {
-							"Path": "/",
-							"Method": "ANY"
-						}
-					}
-				}
-			}
-		},
-		"Bucket" : {
-			"Type" : "AWS::S3::Bucket",
-			"Condition" : "CreateS3Bucket",
-			"Properties" : {
-				"BucketName" : { "Fn::If" : ["BucketNameGenerated", {"Ref" : "AWS::NoValue" }, { "Ref" : "BucketName" } ] }
-			}
-		},
-		"FCAWebSocket": {
-            "Type": "AWS::ApiGatewayV2::Api",
-            "Properties": {
-                "Name": "FCAWebSocket",
-                "ProtocolType": "WEBSOCKET",
-                "RouteSelectionExpression": "$request.body.action"
-            }
+        "true"
+      ]
+    },
+    "BucketNameGenerated": {
+      "Fn::Equals": [
+        {
+          "Ref": "BucketName"
         },
-		"FCAAuthorizerFunction": {
-            "Type": "AWS::Serverless::Function",
-            "Properties": {
-                "CodeUri": "",
-                "Handler": "FCA.API::FCAWS.Author::FunctionHandler",
-                "MemorySize": 256,
-				"Timeout": 30,
-                "Runtime": "dotnetcore2.1",
-				"Environment":{
-					"Variables":{
-						"CognitoIssuer": "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_QPPfSKreN",
-						"CognitoAudience": "pt57be8gffvg40nuhntee1k3a",
-						"CognitoTokenUse": "id",
-						"Kid1": "+o+Bniqg5wsp8Xyk1B1CVW7W2nCpWWna/CK6ZAAK0eU=",
-						"E1": "AQAB",
-						"N1": "hVKyZCeAZAeAdOeLnz5tFJH91mZk_kypEt0KzTp9PXP-GdqDxiKh4YvMWMNyyzuhzhGcpQxvG3Vg8PF6ReCyWYM2ROJYKElNaEiocuTsK99QTC37TJR-U5HQPT4tolJts7tOAf8sFa0AwpD9WiepOtAhk2mj3OMa-WEa3YxpK2ucmoPHWNyeZxjFskqq72Zvyuf8BcXmPjsv4agNyi9Yl0FV8EqQyzWVrAasFBpdpzkJre98jkXbofyfPB9fRLmr65e9CAWCUdWQ0H4bZc5DC2-exF09laWnCRx_UNd3ZE_5T2q9OSsb7tc1k33jnMw59Zi4nKKGyMDSSSixT1HonQ",
-						"Kid2": "mwpBgLy7t+he432sb5TQGYL8MXwuYM1aYT6IYQuNrKg=",
-						"E2": "AQAB",
-						"N2": "o_pfAb51h2uYGSkyjgArQX7dyECCoXOQBjaRmXoe4pM-F3Tg7Mf5QOImqusLqMMzrz8JPZsGN7WOaaGgbGplboA0VL86L1d7T5cllRZFAq9FArIq0ED_1l8IxGGWELvSaTfflYL-GyRfgxExzgXepBZP7CIAlBYyzavxMt_O6PXPFPrqs9aX6Mr-t6IQgBqOGfRlAVN9BU8z-6Wh-w_gW1D7aYkvgMWle2E_Vu5yE6bdxEUTVVkMXQ8dP4i-7W2Tyki8D1xXOCGSA3sRA5a5bS07Uz6sNJ_6yEmTzhrvfmWXjd58DBZhyMY0uiJlAbrkJBLpdLIV3IDa0CIbBx5yWQ"
-					}				
-				}
-            }
-        },
-        "FCAAuthorizerFunctionPermission": {
-           "Type": "AWS::Lambda::Permission",
-			 "DependsOn": [
-                "FCAWebSocket",
-                "FCAAuthorizerFunction"
-            ],
-            "Properties": {
-                "Action": "lambda:InvokeFunction",
-               "FunctionName": {
-				"Fn::GetAtt": [
-					"FCAAuthorizerFunction",
-					"Arn"
-					 ]
-				 },
-                "Principal": "apigateway.amazonaws.com"
-        }
-        },
-		"FCAAuthorizer": {
-			"Type": "AWS::ApiGatewayV2::Authorizer",
-			"Properties": {
-				"Name": "FCAAuthorizer",
-				"ApiId": {
-					"Ref": "FCAWebSocket"
-				},
-				"AuthorizerType": "REQUEST",
-				"AuthorizerUri": {"Fn::Sub": "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FCAAuthorizerFunction.Arn}/invocations"
-				},
-				"IdentitySource": [
-					"route.request.querystring.AuthKey"
-				]
-			}
-		},
-        "ConnectRoute": {
-            "Type": "AWS::ApiGatewayV2::Route",
-            "Properties": {
-                "ApiId": {
-                    "Ref": "FCAWebSocket"
+        ""
+      ]
+    }
+  },
+  "Mappings": {
+    "VPCIpSpace": {
+      "us-east-1": {
+        "RANGE": "10.42"
+      },
+      "us-east-2": {
+        "RANGE": "10.43"
+      },
+      "us-west-1": {
+        "RANGE": "10.44"
+      },
+      "us-west-2": {
+        "RANGE": "10.45"
+      },
+      "ap-south-1": {
+        "RANGE": "10.46"
+      },
+      "ap-northeast-1": {
+        "RANGE": "10.47"
+      },
+      "ap-northeast-2": {
+        "RANGE": "10.48"
+      },
+      "ap-southeast-1": {
+        "RANGE": "10.49"
+      },
+      "ap-southeast-2": {
+        "RANGE": "10.50"
+      }
+    },
+    "SubnetTypeIpRanges": {
+      "public": {
+        "RANGE": "0.0/17"
+      },
+      "private": {
+        "RANGE": "128.0/17"
+      }
+    },
+    "publicSubnetConfig": {
+      "publicSubnet01": {
+        "CIDR": "10.0/24"
+      },
+      "publicSubnet02": {
+        "CIDR": "11.0/24"
+      }
+    },
+    "privateSubnetConfig": {
+      "privateSubnet01": {
+        "CIDR": "224.0/24"
+      },
+      "privateSubnet02": {
+        "CIDR": "225.0/24"
+      }
+    }
+  },
+  "Resources": {
+    "AspNetCoreFunction": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "FCA.API::FCA.API.LambdaEntryPoint::FunctionHandlerAsync",
+        "Runtime": "dotnetcore2.1",
+        "CodeUri": "",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Role": null,
+        "Policies": [
+          "AWSLambdaFullAccess"
+        ],
+        "Environment": {
+          "Variables": {
+            "AppS3Bucket": {
+              "Fn::If": [
+                "CreateS3Bucket",
+                {
+                  "Ref": "Bucket"
                 },
-                "RouteKey": "$connect",
-                "AuthorizationType": "CUSTOM",
-                "OperationName": "ConnectRoute",
-                "Target": {
+                {
+                  "Ref": "BucketName"
+                }
+              ]
+            }
+          }
+        },
+        "Events": {
+          "ProxyResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/{proxy+}",
+              "Method": "ANY"
+            }
+          },
+          "RootResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/",
+              "Method": "ANY"
+            }
+          }
+        }
+      }
+    },
+    "Bucket": {
+      "Type": "AWS::S3::Bucket",
+      "Condition": "CreateS3Bucket",
+      "Properties": {
+        "BucketName": {
+          "Fn::If": [
+            "BucketNameGenerated",
+            {
+              "Ref": "AWS::NoValue"
+            },
+            {
+              "Ref": "BucketName"
+            }
+          ]
+        }
+      }
+    },
+    "PubSubWS": {
+      "Type": "AWS::ApiGatewayV2::Api",
+      "Properties": {
+        "Name": "PubSubWS",
+        "ProtocolType": "WEBSOCKET",
+        "RouteSelectionExpression": "$request.body.action"
+      }
+    },
+    "ConnectRoute": {
+      "Type": "AWS::ApiGatewayV2::Route",
+      "Properties": {
+        "ApiId": {
+          "Ref": "PubSubWS"
+        },
+        "RouteKey": "$connect",
+        "AuthorizationType": "NONE",
+        "OperationName": "ConnectRoute",
+        "Target": {
+          "Fn::Join": [
+            "/",
+            [
+              "integrations",
+              {
+                "Ref": "ConnectInteg"
+              }
+            ]
+          ]
+        }
+      }
+    },
+    "ConnectInteg": {
+      "Type": "AWS::ApiGatewayV2::Integration",
+      "Properties": {
+        "ApiId": {
+          "Ref": "PubSubWS"
+        },
+        "Description": "Connect Integration",
+        "IntegrationType": "AWS_PROXY",
+        "IntegrationUri": {
+          "Fn::Sub": "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnConnectFunction.Arn}/invocations"
+        }
+      }
+    },
+    "DisconnectRoute": {
+      "Type": "AWS::ApiGatewayV2::Route",
+      "Properties": {
+        "ApiId": {
+          "Ref": "PubSubWS"
+        },
+        "RouteKey": "$disconnect",
+        "AuthorizationType": "NONE",
+        "OperationName": "DisconnectRoute",
+        "Target": {
+          "Fn::Join": [
+            "/",
+            [
+              "integrations",
+              {
+                "Ref": "DisconnectInteg"
+              }
+            ]
+          ]
+        }
+      }
+    },
+    "DisconnectInteg": {
+      "Type": "AWS::ApiGatewayV2::Integration",
+      "Properties": {
+        "ApiId": {
+          "Ref": "PubSubWS"
+        },
+        "Description": "Disconnect Integration",
+        "IntegrationType": "AWS_PROXY",
+        "IntegrationUri": {
+          "Fn::Sub": "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnDisconnectFunction.Arn}/invocations"
+        }
+      }
+    },
+    "Stage": {
+      "Type": "AWS::ApiGatewayV2::Stage",
+      "Properties": {
+        "StageName": "Dev",
+        "Description": "Dev Stage",
+        "DeploymentId": {
+          "Ref": "Deployment"
+        },
+        "ApiId": {
+          "Ref": "PubSubWS"
+        }
+      }
+    },
+    "ConnectionsTable": {
+      "Type": "AWS::DynamoDB::Table",
+      "Properties": {
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "connectionId",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "connectionId",
+            "KeyType": "HASH"
+          }
+        ],
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": 5,
+          "WriteCapacityUnits": 5
+        },
+        "SSESpecification": {
+          "SSEEnabled": true
+        },
+        "TableName": {
+          "Ref": "TableName"
+        }
+      }
+    },
+    "OnConnectFunction": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "CodeUri": "",
+        "Handler": "FCA.API::FCAWS.Handler::OnConnect",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Runtime": "dotnetcore2.1",
+        "Environment": {
+          "Variables": {
+            "TABLE_NAME": {
+              "Ref": "TableName"
+            }
+          }
+        },
+        "Policies": [
+          {
+            "DynamoDBCrudPolicy": {
+              "TableName": {
+                "Ref": "TableName"
+              }
+            }
+          },
+          {
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "ssm:Describe*",
+                  "ssm:Get*",
+                  "ssm:List*"
+                ],
+                "Resource": "*"
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "execute-api:ManageConnections"
+                ],
+                "Resource": [
+                  {
+                    "Fn::Sub": "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ConnectionsTable}"
+                  },
+                  {
+                    "Fn::Sub": "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PubSubWS}/*"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "OnConnectPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "DependsOn": [
+        "PubSubWS",
+        "OnConnectFunction"
+      ],
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "OnConnectFunction",
+            "Arn"
+          ]
+        },
+        "Principal": "apigateway.amazonaws.com"
+      }
+    },
+    "OnDisconnectFunction": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "CodeUri": "",
+        "Handler": "FCA.API::FCAWS.Handler::OnDisconnect",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Runtime": "dotnetcore2.1",
+        "Environment": {
+          "Variables": {
+            "TABLE_NAME": {
+              "Ref": "TableName"
+            }
+          }
+        },
+        "Policies": [
+          {
+            "DynamoDBCrudPolicy": {
+              "TableName": {
+                "Ref": "TableName"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "OnDisconnectPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "DependsOn": [
+        "PubSubWS",
+        "OnDisconnectFunction"
+      ],
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "OnDisconnectFunction",
+            "Arn"
+          ]
+        },
+        "Principal": "apigateway.amazonaws.com"
+      }
+    },
+    "CognitoUserPool": {
+      "Type": "AWS::Cognito::UserPool",
+      "Properties": {
+        "MfaConfiguration": "OFF",
+        "UserPoolName": "my-websocket",
+        "UsernameAttributes": [
+          "email"
+        ],
+        "AutoVerifiedAttributes": [
+          "email"
+        ],
+        "Policies": {
+          "PasswordPolicy": {
+            "MinimumLength": 6,
+            "RequireLowercase": false,
+            "RequireNumbers": true,
+            "RequireSymbols": false,
+            "RequireUppercase": true
+          }
+        }
+      }
+    },
+    "CognitoUserPoolClient": {
+      "Type": "AWS::Cognito::UserPoolClient",
+      "Properties": {
+        "ClientName": "my-websocket-client",
+        "GenerateSecret": false,
+        "UserPoolId": {
+          "Ref": "CognitoUserPool"
+        },
+        "ExplicitAuthFlows": [
+          "USER_PASSWORD_AUTH"
+        ],
+        "AllowedOAuthFlows": [
+          "code"
+        ],
+        "AllowedOAuthFlowsUserPoolClient": true,
+        "AllowedOAuthScopes": [
+          "email",
+          "openid"
+        ],
+        "CallbackURLs": [
+          "https://example.com/"
+        ],
+        "SupportedIdentityProviders": [
+          "COGNITO"
+        ]
+      }
+    },
+    "MyApi": {
+      "Type": "AWS::Serverless::Api",
+      "Properties": {
+        "Name": "MyApi",
+        "StageName": "Prod",
+        "Cors": "'*'",
+        "Auth": {
+          "DefaultAuthorizer": "MyCognitoAuthorizer",
+          "Authorizers": {
+            "MyCognitoAuthorizer": {
+              "UserPoolArn": {
+                "Fn::GetAtt": [
+                  "CognitoUserPool",
+                  "Arn"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "AuthenticationFunction": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "CodeUri": "",
+        "Handler": "FCA.API::FCAWS.Handler::Authentication",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Runtime": "dotnetcore2.1",
+        "Events": {
+          "ApiResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/authen",
+              "Method": "POST",
+              "RestApiId": {
+                "Ref": "MyApi"
+              }
+            }
+          }
+        }
+      }
+    },
+    "Deployment": {
+      "Type": "AWS::ApiGatewayV2::Deployment",
+      "DependsOn": [
+        "ConnectRoute",
+        "DisconnectRoute"
+      ],
+      "Properties": {
+        "ApiId": {
+          "Ref": "PubSubWS"
+        }
+      }
+    },
+    "PubSubVPC": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Fn::FindInMap": [
+                  "VPCIpSpace",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  "RANGE"
+                ]
+              },
+              ".",
+              "0.0/16"
+            ]
+          ]
+        },
+        "EnableDnsSupport": "true",
+        "EnableDnsHostnames": "true",
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "VPCEnvironment"
+            }
+          },
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "",
+                [
+                  {
+                    "Ref": "VPCEnvironment"
+                  },
+                  "-VPC"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "PublicSubnet01": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "PubSubVPC"
+        },
+        "CidrBlock": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Fn::FindInMap": [
+                  "VPCIpSpace",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  "RANGE"
+                ]
+              },
+              ".",
+              {
+                "Fn::FindInMap": [
+                  "publicSubnetConfig",
+                  "publicSubnet01",
+                  "CIDR"
+                ]
+              }
+            ]
+          ]
+        },
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "0",
+            {
+              "Fn::GetAZs": {
+                "Ref": "AWS::Region"
+              }
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "VPCEnvironment"
+            }
+          },
+          {
+            "Key": "SubnetType",
+            "Value": "Public"
+          },
+          {
+            "Key": "Name",
+            "Value": "publicSubnet01"
+          }
+        ]
+      }
+    },
+    "PublicSubnet02": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "PubSubVPC"
+        },
+        "CidrBlock": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Fn::FindInMap": [
+                  "VPCIpSpace",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  "RANGE"
+                ]
+              },
+              ".",
+              {
+                "Fn::FindInMap": [
+                  "publicSubnetConfig",
+                  "publicSubnet02",
+                  "CIDR"
+                ]
+              }
+            ]
+          ]
+        },
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "1",
+            {
+              "Fn::GetAZs": {
+                "Ref": "AWS::Region"
+              }
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "VPCEnvironment"
+            }
+          },
+          {
+            "Key": "SubnetType",
+            "Value": "Public"
+          },
+          {
+            "Key": "Name",
+            "Value": "publicSubnet02"
+          }
+        ]
+      }
+    },
+    "PrivateSubnet01": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "PubSubVPC"
+        },
+        "CidrBlock": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Fn::FindInMap": [
+                  "VPCIpSpace",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  "RANGE"
+                ]
+              },
+              ".",
+              {
+                "Fn::FindInMap": [
+                  "privateSubnetConfig",
+                  "privateSubnet01",
+                  "CIDR"
+                ]
+              }
+            ]
+          ]
+        },
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "0",
+            {
+              "Fn::GetAZs": {
+                "Ref": "AWS::Region"
+              }
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "VPCEnvironment"
+            }
+          },
+          {
+            "Key": "SubnetType",
+            "Value": "Private"
+          },
+          {
+            "Key": "Name",
+            "Value": "privateSubnet01"
+          }
+        ]
+      }
+    },
+    "PrivateSubnet02": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "PubSubVPC"
+        },
+        "CidrBlock": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Fn::FindInMap": [
+                  "VPCIpSpace",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  "RANGE"
+                ]
+              },
+              ".",
+              {
+                "Fn::FindInMap": [
+                  "privateSubnetConfig",
+                  "privateSubnet02",
+                  "CIDR"
+                ]
+              }
+            ]
+          ]
+        },
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "1",
+            {
+              "Fn::GetAZs": {
+                "Ref": "AWS::Region"
+              }
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "VPCEnvironment"
+            }
+          },
+          {
+            "Key": "SubnetType",
+            "Value": "Private"
+          },
+          {
+            "Key": "Name",
+            "Value": "privateSubnet02"
+          }
+        ]
+      }
+    },
+    "InternetGateway": {
+      "Type": "AWS::EC2::InternetGateway",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "VPCEnvironment"
+            }
+          },
+          {
+            "Key": "Name",
+            "Value": "PubSubVPCIGW"
+          }
+        ]
+      }
+    },
+    "AttachGateway": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties": {
+        "VpcId": {
+          "Ref": "PubSubVPC"
+        },
+        "InternetGatewayId": {
+          "Ref": "InternetGateway"
+        }
+      }
+    },
+    "PublicRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "PubSubVPC"
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "VPCEnvironment"
+            }
+          },
+          {
+            "Key": "Name",
+            "Value": "PublicRouteTable"
+          }
+        ]
+      }
+    },
+    "PublicRoute": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "InternetGateway"
+        }
+      }
+    },
+    "PublicSubnetRTAssociation01": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "PublicSubnet01"
+        },
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        }
+      }
+    },
+    "PublicSubnetRTAssociation02": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "PublicSubnet02"
+        },
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        }
+      }
+    },
+    "PrivateSubnetRTAssociation01": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "PrivateSubnet01"
+        },
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        }
+      }
+    },
+    "PrivateSubnetRTAssociation02": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "PrivateSubnet02"
+        },
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        }
+      }
+    },
+    "PublicNetworkAcl": {
+      "Type": "AWS::EC2::NetworkAcl",
+      "Properties": {
+        "VpcId": {
+          "Ref": "PubSubVPC"
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "VPCEnvironment"
+            }
+          },
+          {
+            "Key": "Name",
+            "Value": "NetworkAcl"
+          }
+        ]
+      }
+    },
+    "InboundPublicNAclEntry": {
+      "Type": "AWS::EC2::NetworkAclEntry",
+      "Properties": {
+        "NetworkAclId": {
+          "Ref": "PublicNetworkAcl"
+        },
+        "RuleNumber": "2000",
+        "Protocol": "-1",
+        "RuleAction": "allow",
+        "Egress": "false",
+        "CidrBlock": "0.0.0.0/0",
+        "PortRange": {
+          "From": "0",
+          "To": "65535"
+        }
+      }
+    },
+    "OutboundPublicNetworkAclEntry": {
+      "Type": "AWS::EC2::NetworkAclEntry",
+      "Properties": {
+        "NetworkAclId": {
+          "Ref": "PublicNetworkAcl"
+        },
+        "RuleNumber": "2000",
+        "Protocol": "-1",
+        "RuleAction": "allow",
+        "Egress": "true",
+        "CidrBlock": "0.0.0.0/0",
+        "PortRange": {
+          "From": "0",
+          "To": "65535"
+        }
+      }
+    },
+    "PublicSubnetNetworkAclAssociation01": {
+      "Type": "AWS::EC2::SubnetNetworkAclAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "PublicSubnet01"
+        },
+        "NetworkAclId": {
+          "Ref": "PublicNetworkAcl"
+        }
+      }
+    },
+    "PublicSubnetNetworkAclAssociation02": {
+      "Type": "AWS::EC2::SubnetNetworkAclAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "PublicSubnet02"
+        },
+        "NetworkAclId": {
+          "Ref": "PublicNetworkAcl"
+        }
+      }
+    },
+    "PrivateSubnetNetworkAclAssociation01": {
+      "Type": "AWS::EC2::SubnetNetworkAclAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "PrivateSubnet01"
+        },
+        "NetworkAclId": {
+          "Ref": "PublicNetworkAcl"
+        }
+      }
+    },
+    "PrivateSubnetNetworkAclAssociation02": {
+      "Type": "AWS::EC2::SubnetNetworkAclAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "PrivateSubnet02"
+        },
+        "NetworkAclId": {
+          "Ref": "PublicNetworkAcl"
+        }
+      }
+    },
+    "EndpointSG": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "VpcId": {
+          "Ref": "PubSubVPC"
+        },
+        "GroupDescription": "SG for API Gateway Private endpoint",
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "443",
+            "ToPort": "443",
+            "CidrIp": {
+              "Fn::Join": [
+                "",
+                [
+                  {
+                    "Fn::FindInMap": [
+                      "VPCIpSpace",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "RANGE"
+                    ]
+                  },
+                  ".",
+                  "0.0/16"
+                ]
+              ]
+            }
+          }
+        ],
+        "SecurityGroupEgress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "0",
+            "ToPort": "65535",
+            "CidrIp": "0.0.0.0/0"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "VPCEnvironment"
+            }
+          },
+          {
+            "Key": "Name",
+            "Value": "EndpointSG"
+          }
+        ]
+      }
+    },
+    "PubSubEndpoint": {
+      "Type": "AWS::EC2::VPCEndpoint",
+      "Properties": {
+        "VpcId": {
+          "Ref": "PubSubVPC"
+        },
+        "ServiceName": {
+          "Fn::Sub": "com.amazonaws.${AWS::Region}.execute-api"
+        },
+        "VpcEndpointType": "Interface",
+        "PrivateDnsEnabled": true,
+        "SubnetIds": [
+          {
+            "Ref": "PrivateSubnet01"
+          },
+          {
+            "Ref": "PrivateSubnet02"
+          }
+        ],
+        "SecurityGroupIds": [
+          {
+            "Ref": "EndpointSG"
+          }
+        ]
+      }
+    },
+    "MyPrivateApi": {
+      "Type": "AWS::ApiGateway::RestApi",
+      "Properties": {
+        "Name": "MyPrivateApi",
+        "EndpointConfiguration": {
+          "Types": [
+            "PRIVATE"
+          ]
+        },
+        "Policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": "*",
+              "Action": [
+                "execute-api:Invoke"
+              ],
+              "Resource": {
+                "Fn::Sub": "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*"
+              },
+              "Condition": {
+                "StringEquals": {
+                  "aws:sourceVpce": {
+                    "Fn::Sub": "${PubSubEndpoint}"
+                  }
+                }
+              }
+            },
+            {
+              "Effect": "Deny",
+              "Principal": "*",
+              "Action": [
+                "execute-api:Invoke"
+              ],
+              "Resource": {
+                "Fn::Sub": "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*"
+              },
+              "Condition": {
+                "StringNotEquals": {
+                  "aws:sourceVpce": {
+                    "Fn::Sub": "${PubSubEndpoint}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "ProxyResource": {
+      "Type": "AWS::ApiGateway::Resource",
+      "Properties": {
+        "RestApiId": {
+          "Ref": "MyPrivateApi"
+        },
+        "ParentId": {
+          "Fn::GetAtt": [
+            "MyPrivateApi",
+            "RootResourceId"
+          ]
+        },
+        "PathPart": "publication"
+      }
+    },
+    "ProxyResourceANY": {
+      "Type": "AWS::ApiGateway::Method",
+      "Properties": {
+        "RestApiId": {
+          "Ref": "MyPrivateApi"
+        },
+        "ResourceId": {
+          "Ref": "ProxyResource"
+        },
+        "HttpMethod": "POST",
+        "AuthorizationType": "NONE",
+        "Integration": {
+          "Type": "AWS_PROXY",
+          "IntegrationHttpMethod": "POST",
+          "Uri": {
+            "Fn::Sub": "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PublicationFunction.Arn}/invocations"
+          }
+        }
+      }
+    },
+    "PublicationFunctionPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "DependsOn": [
+        "MyPrivateApi",
+        "PublicationFunction"
+      ],
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "PublicationFunction",
+            "Arn"
+          ]
+        },
+        "Principal": "apigateway.amazonaws.com"
+      }
+    },
+    "PublicationFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Handler": "FCA.API::FCAWS.Handler::Publication",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Runtime": "dotnetcore2.1",
+        "Environment": {
+          "Variables": {
+            "TABLE_NAME": {
+              "Ref": "TableName"
+            },
+            "WSGateway": {
+              "Fn::Join": [
+                "",
+                [
+                  "https://",
+                  {
+                    "Ref": "PubSubWS"
+                  },
+                  ".execute-api.",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  ".amazonaws.com/Dev"
+                ]
+              ]
+            }
+          }
+        },
+        "Role": {
+          "Fn::GetAtt": [
+            "PublicationFunctionRole",
+            "Arn"
+          ]
+        }
+      }
+    },
+    "PublicationFunctionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "AWS::StackName"
+                  },
+                  "UseDBPolicy"
+                ]
+              ]
+            },
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "dynamodb:BatchGetItem",
+                    "dynamodb:Describe*",
+                    "dynamodb:List*",
+                    "dynamodb:GetItem",
+                    "dynamodb:Query",
+                    "dynamodb:Scan"
+                  ],
+                  "Resource": {
                     "Fn::Join": [
-                        "/",
-                        [
-                            "integrations",
-                            {
-                                "Ref": "ConnectInteg"
-                            }
-                        ]
+                      "",
+                      [
+                        "arn:aws:dynamodb:",
+                        {
+                          "Ref": "AWS::Region"
+                        },
+                        ":",
+                        {
+                          "Ref": "AWS::AccountId"
+                        },
+                        ":table/",
+                        {
+                          "Ref": "ConnectionsTable"
+                        }
+                      ]
                     ]
+                  }
                 },
-                "AuthorizerId": {
-                    "Ref": "FCAAuthorizer"
-                }
-            }
-        },
-        "ConnectInteg": {
-            "Type": "AWS::ApiGatewayV2::Integration",
-            "Properties": {
-                "ApiId": {
-                    "Ref": "FCAWebSocket"
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": "*"
                 },
-                "Description": "Connect Integration",
-                "IntegrationType": "AWS_PROXY",
-                "IntegrationUri": {
-                    "Fn::Sub": "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnConnectFunction.Arn}/invocations"
-                }
-            }
-        },
-        "DisconnectRoute": {
-            "Type": "AWS::ApiGatewayV2::Route",
-            "Properties": {
-                "ApiId": {
-                    "Ref": "FCAWebSocket"
-                },
-                "RouteKey": "$disconnect",
-                "AuthorizationType": "NONE",
-                "OperationName": "DisconnectRoute",
-                "Target": {
-                    "Fn::Join": [
-                        "/",
-                        [
-                            "integrations",
-                            {
-                                "Ref": "DisconnectInteg"
-                            }
-                        ]
-                    ]
-                }
-            }
-        },
-        "DisconnectInteg": {
-            "Type": "AWS::ApiGatewayV2::Integration",
-            "Properties": {
-                "ApiId": {
-                    "Ref": "FCAWebSocket"
-                },
-                "Description": "Disconnect Integration",
-                "IntegrationType": "AWS_PROXY",
-                "IntegrationUri": {
-                    "Fn::Sub": "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnDisconnectFunction.Arn}/invocations"
-                }
-            }
-        },
-        "Stage": {
-            "Type": "AWS::ApiGatewayV2::Stage",
-            "Properties": {
-                "StageName": "Prod",
-                "Description": "Prod Stage",
-                "DeploymentId": {
-                    "Ref": "Deployment"
-                },
-                "ApiId": {
-                    "Ref": "FCAWebSocket"
-                }
-            }
-        },
-        "ConnectionsTable": {
-            "Type": "AWS::DynamoDB::Table",
-            "Properties": {
-                "AttributeDefinitions": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "execute-api:ManageConnections"
+                  ],
+                  "Resource": [
                     {
-                        "AttributeName": "connectionId",
-                        "AttributeType": "S"
-                    }
-                ],
-                "KeySchema": [
-                    {
-                        "AttributeName": "connectionId",
-                        "KeyType": "HASH"
-                    }
-                ],
-                "ProvisionedThroughput": {
-                    "ReadCapacityUnits": 5,
-                    "WriteCapacityUnits": 5
-                },
-                "SSESpecification": {
-                    "SSEEnabled": true
-                },
-                "TableName": {
-                    "Ref": "TableName"
-                }
-            }
-        },
-        "OnConnectFunction": {
-            "Type": "AWS::Serverless::Function",
-            "Properties": {
-                "CodeUri": "",
-                "Handler": "FCA.API::FCAWS.Handler::OnConnect",
-                "MemorySize": 256,
-				"Timeout": 30,
-                "Runtime": "dotnetcore2.1",
-                "Environment": {
-                    "Variables": {
-                        "TABLE_NAME": {
-                            "Ref": "TableName"
-                        }
-                    }
-                },
-                "Policies": [
-                    {
-                        "DynamoDBCrudPolicy": {
-                            "TableName": {
-                                "Ref": "TableName"
-                            }
-                        }
-                    }
-                ]
-            }
-        },
-		"OnConnectPermission": {
-            "Type": "AWS::Lambda::Permission",
-            "DependsOn": [
-                "FCAWebSocket",
-                "OnConnectFunction"
-            ],
-            "Properties": {
-                "Action": "lambda:InvokeFunction",
-               "FunctionName": {
-				"Fn::GetAtt": [
-					"OnConnectFunction",
-					"Arn"
-					 ]
-				 },
-                "Principal": "apigateway.amazonaws.com"
-            }
-        },
-        "OnDisconnectFunction": {
-            "Type": "AWS::Serverless::Function",
-            "Properties": {
-                "CodeUri": "",
-                "Handler": "FCA.API::FCAWS.Handler::OnDisconnect",
-                "MemorySize": 256,
-				"Timeout": 30,
-                "Runtime": "dotnetcore2.1",
-                "Environment": {
-                    "Variables": {
-                        "TABLE_NAME": {
-                            "Ref": "TableName"
-                        }
-                    }
-                },
-                "Policies": [
-                    {
-                        "DynamoDBCrudPolicy": {
-                            "TableName": {
-                                "Ref": "TableName"
-                            }
-                        }
-                    }
-                ]
-            }
-        },
-		"OnDisconnectPermission": {
-            "Type": "AWS::Lambda::Permission",
-            "DependsOn": [
-                "FCAWebSocket",
-                "OnDisconnectFunction"
-            ],
-            "Properties": {
-                "Action": "lambda:InvokeFunction",
-                "FunctionName": {
-				"Fn::GetAtt": [
-					"OnDisconnectFunction",
-					"Arn"
-					 ]
-				 },
-                "Principal": "apigateway.amazonaws.com"
-            }
-        },
-		"FCAVersionTable": {
-            "Type": "AWS::DynamoDB::Table",
-            "Properties": {
-                "AttributeDefinitions": [
-                    {
-                        "AttributeName": "id",
-                        "AttributeType": "S"
-                    }
-                ],
-                "KeySchema": [
-                    {
-                        "AttributeName": "id",
-                        "KeyType": "HASH"
-                    }
-                ],
-                "ProvisionedThroughput": {
-                    "ReadCapacityUnits": 5,
-                    "WriteCapacityUnits": 5
-                },
-                "SSESpecification": {
-                    "SSEEnabled": true
-                },
-                "StreamSpecification": {
-                    "StreamViewType": "NEW_IMAGE"
-                },
-                "TableName": {
-                    "Ref": "FCAVersion"
-                }
-            }
-        },
-		 "CognitoUserPool": {
-			"Type": "AWS::Cognito::UserPool",
-			"Properties": {
-				"MfaConfiguration": "OFF",
-				"UserPoolName": "my-websocket",
-				"UsernameAttributes": [
-					"email"
-				],
-				"AutoVerifiedAttributes" : [ "email"],
-				 "Policies": {
-					"PasswordPolicy": {
-						"MinimumLength": 6,
-						"RequireLowercase": false,
-						"RequireNumbers": true,
-						"RequireSymbols": false,
-						"RequireUppercase": true
-						}
-					}
-			}
-		},
-		"CognitoUserPoolClient": {
-			"Type": "AWS::Cognito::UserPoolClient",
-			"Properties": {
-				"ClientName": "my-websocket-client",
-				"GenerateSecret": false,
-				"UserPoolId": {
-					"Ref": "CognitoUserPool"
-				},
-				"ExplicitAuthFlows":[
-					"USER_PASSWORD_AUTH"
-				],				
-				"AllowedOAuthFlows" : ["code"],
-				"AllowedOAuthFlowsUserPoolClient" : true,
-				"AllowedOAuthScopes" : [ "email","openid" ],
-				"CallbackURLs" : [ "https://example.com/"],
-				"SupportedIdentityProviders":["COGNITO"]
-			}
-		},
-		"MyApi": {
-			"Type": "AWS::Serverless::Api",
-			"Properties": {
-				"Name": "MyApi",
-				"StageName":"Prod",
-				"Cors": "'*'",
-				"Auth": {
-					"DefaultAuthorizer": "MyCognitoAuthorizer",
-					"Authorizers": {
-						"MyCognitoAuthorizer": {
-							"UserPoolArn": {
-								"Fn::GetAtt": [
-									"CognitoUserPool",
-									"Arn"
-								]
-							}
-						}
-					}
-				}
-			}
-		},
-		"UpdateVersionFunction": {
-            "Type": "AWS::Serverless::Function",
-            "Properties": {
-                "CodeUri": "",
-                "Handler": "FCA.API::FCAWS.Handler::UpdateVersion",
-                "MemorySize": 256,
-				"Timeout": 30,
-                "Runtime": "dotnetcore2.1",
-                "Policies": [
-                    {
-                        "DynamoDBCrudPolicy": {
-                            "TableName": {
-                                "Ref": "FCAVersion"
-                            }
-                        }
-                    }
-                ],
-				"Events": {
-					"ApiResource": {
-						"Type": "Api",
-						"Properties": {
-							"Path": "/updateVersion",
-							"Method": "POST",
-							 "RestApiId": {
-								"Ref": "MyApi"
-							}
-						}
-					}
-				}
-            }
-        },
-		"StreamReceiverFunction": {
-            "Type": "AWS::Serverless::Function",
-            "Properties": {
-                "CodeUri": "",
-                "Handler": "FCA.API::FCAWS.Handler::StreamReceiver",
-                "MemorySize": 256,
-				"Timeout": 30,
-                "Runtime": "dotnetcore2.1",
-				"Environment":{
-					"Variables":{
-						"ServiceURL":"https://rpi4kpxg33.execute-api.us-east-1.amazonaws.com/Prod"
-						}
-				},
-                "Policies": [
-                    {
-                        "DynamoDBCrudPolicy": {
-                            "TableName": {
-                                "Ref": "TableName"
-                            }
-                        }
+                      "Fn::Sub": "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PubSubWS}/*"
                     },
-					{
-                        "DynamoDBCrudPolicy": {
-                            "TableName": {
-                                "Ref": "FCAVersion"
-                            }
-                        }
-                    },
-					{
-					"Statement": [
-                                {
-                                    "Effect": "Allow",
-                                    "Action": [
-                                        "logs:CreateLogGroup",
-                                        "logs:CreateLogStream",
-                                        "logs:PutLogEvents"
-                                    ],
-                                    "Resource": "arn:aws:logs:*:*:*"
-                                },
-                                {
-                                    "Effect": "Allow",
-                                    "Action": [
-                                        "dynamodb:DescribeStream",
-                                        "dynamodb:GetRecords",
-                                        "dynamodb:GetShardIterator",
-                                        "dynamodb:ListStreams"
-                                    ],
-                                    "Resource": "*"
-                                },
-								{
-                                "Effect": "Allow",
-                                "Action": [
-                                    "execute-api:ManageConnections"
-                                ],
-                                "Resource": [
-                                     {
-                                        "Fn::Sub": "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ConnectionsTable}"
-									 },
-									 {
-                                        "Fn::Sub": "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${FCAWebSocket}/*"
-								     }
-                                ]
-                            }
-                            ]
-							}
-                ]
-            }
-		},
-		"FCAVersionTableStream": {
-            "Type": "AWS::Lambda::EventSourceMapping",
-            "Properties": {
-                "BatchSize": 1,
-                "Enabled": true,
-                "EventSourceArn": {
-                    "Fn::GetAtt": [
-                        "FCAVersionTable",
-                        "StreamArn"
-                    ]
-                },
-                "FunctionName": {
-                    "Fn::GetAtt": [
-                        "StreamReceiverFunction",
-                        "Arn"
-                    ]
-                },
-                "StartingPosition": "LATEST"
-            }
-        },
-        "Deployment": {
-            "Type": "AWS::ApiGatewayV2::Deployment",
-            "DependsOn": [
-                "ConnectRoute",
-                "DisconnectRoute"
-            ],
-            "Properties": {
-                "ApiId": {
-                    "Ref": "FCAWebSocket"
+                    {
+                      "Fn::Sub": "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ConnectionsTable}"
+                    }
+                  ]
                 }
+              ]
             }
-        }
-	},
-	"Outputs" : {
-		"ApiURL" : {
-			"Description" : "API endpoint URL for Prod environment",
-			"Value" : { "Fn::Sub" : "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/" }
-		},
-		"S3ProxyBucket" : {
-			"Value" : { "Fn::If" : ["CreateS3Bucket", {"Ref":"Bucket"}, { "Ref" : "BucketName" } ] }
-		},
-		"ConnectionsTableArn": {
-            "Description": "Connections table ARN",
-            "Value": {
-                "Fn::GetAtt": [
-                    "ConnectionsTable",
-                    "Arn"
-                ]
-            }
+          }
+        ]
+      }
+    },
+    "PrivateApiDeployment": {
+      "DependsOn": [
+        "ProxyResourceANY"
+      ],
+      "Type": "AWS::ApiGateway::Deployment",
+      "Properties": {
+        "RestApiId": {
+          "Ref": "MyPrivateApi"
         },
-		"FCAVersionTableArn": {
-            "Description": "FCA Version table ARN",
-            "Value": {
-                "Fn::GetAtt": [
-                    "FCAVersionTable",
-                    "Arn"
-                ]
+        "Description": "My deployment",
+        "StageName": "Dev"
+      }
+    },
+    "AuthorPublishFunction": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "CodeUri": "",
+        "Handler": "FCA.API::FCAWS.Handler::AuthorPublish",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Runtime": "dotnetcore2.1",
+        "Events": {
+          "ApiResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/author",
+              "Method": "POST",
+              "RestApiId": {
+                "Ref": "MyApi"
+              }
             }
+          }
         },
-		"OnConnectFunctionArn": {
-            "Description": "OnConnect function ARN",
-            "Value": {
-                "Fn::GetAtt": [
-                    "OnConnectFunction",
-                    "Arn"
-                ]
+        "Role": {
+          "Fn::GetAtt": [
+            "AuthorPublishFunctionRole",
+            "Arn"
+          ]
+        },
+        "VpcConfig": {
+          "SecurityGroupIds": [
+            {
+              "Ref": "AuthorPublishFunctionSG"
             }
-        },
-        "OnDisconnectFunctionArn": {
-            "Description": "OnDisconnect function ARN",
-            "Value": {
-                "Fn::GetAtt": [
-                    "OnDisconnectFunction",
-                    "Arn"
-                ]
-            }
-        },
-        "UpdateVersionFunctionArn": {
-            "Description": "Update Version Function Arn",
-            "Value": {
-                "Fn::GetAtt": [
-                    "UpdateVersionFunction",
-                    "Arn"
-                ]
-            }
-        },
-		"FCAWebSocketURI": {
-            "Description": "The WSS Protocol URI to connect to",
-            "Value": {
+          ],
+          "SubnetIds": [
+            {
+              "Fn::ImportValue": {
                 "Fn::Join": [
-                    "",
-                    [
-                        "wss://",
-                        {
-                            "Ref": "FCAWebSocket"
-                        },
-                        ".execute-api.",
-                        {
-                            "Ref": "AWS::Region"
-                        },
-                        ".amazonaws.com/",
-                        {
-                            "Ref": "Stage"
-                        }
-                    ]
+                  "",
+                  [
+                    {
+                      "Ref": "VPCEnvironment"
+                    },
+                    "-privateSubnet01"
+                  ]
                 ]
+              }
+            },
+            {
+              "Fn::ImportValue": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Ref": "VPCEnvironment"
+                    },
+                    "-privateSubnet02"
+                  ]
+                ]
+              }
             }
+          ]
+        },
+        "Environment": {
+          "Variables": {
+            "APIGW": {
+              "Fn::Sub": "${MyPrivateApi}.execute-api.${AWS::Region}.amazonaws.com"
+            },
+            "DNSName": {
+              "Fn::Sub": "vpce-0da3b00d97303e516-p0k50jo6.execute-api.us-east-2.vpce.amazonaws.com"
+            }
+          }
         }
-	}
+      }
+    },
+    "AuthorPublishFunctionRole": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "sts:AssumeRole"
+              ],
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+        ]
+      },
+      "Type": "AWS::IAM::Role"
+    },
+    "AuthorPublishFunctionSG": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "VpcId": {
+          "Fn::ImportValue": {
+            "Fn::Join": [
+              "",
+              [
+                {
+                  "Ref": "VPCEnvironment"
+                },
+                "-PubSubVPC"
+              ]
+            ]
+          }
+        },
+        "GroupDescription": "SG for Author Publish function",
+        "SecurityGroupEgress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "0",
+            "ToPort": "65535",
+            "CidrIp": "0.0.0.0/0"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "VPCEnvironment"
+            }
+          },
+          {
+            "Key": "Name",
+            "Value": "AuthorPublishFunctionSG"
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "ApiURL": {
+      "Description": "API endpoint URL for Prod environment",
+      "Value": {
+        "Fn::Sub": "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+      }
+    },
+    "S3ProxyBucket": {
+      "Value": {
+        "Fn::If": [
+          "CreateS3Bucket",
+          {
+            "Ref": "Bucket"
+          },
+          {
+            "Ref": "BucketName"
+          }
+        ]
+      }
+    },
+    "ConnectionsTableArn": {
+      "Description": "Connections table ARN",
+      "Value": {
+        "Fn::GetAtt": [
+          "ConnectionsTable",
+          "Arn"
+        ]
+      }
+    },
+    "OnConnectFunctionArn": {
+      "Description": "OnConnect function ARN",
+      "Value": {
+        "Fn::GetAtt": [
+          "OnConnectFunction",
+          "Arn"
+        ]
+      }
+    },
+    "OnDisconnectFunctionArn": {
+      "Description": "OnDisconnect function ARN",
+      "Value": {
+        "Fn::GetAtt": [
+          "OnDisconnectFunction",
+          "Arn"
+        ]
+      }
+    },
+    "AuthenticationFunctionArn": {
+      "Description": "Authentication Function Arn",
+      "Value": {
+        "Fn::GetAtt": [
+          "AuthenticationFunction",
+          "Arn"
+        ]
+      }
+    },
+    "VpcId": {
+      "Value": {
+        "Ref": "PubSubVPC"
+      },
+      "Description": "VPC ID of newly created VPC",
+      "Export": {
+        "Name": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "VPCEnvironment"
+              },
+              "-PubSubVPC"
+            ]
+          ]
+        }
+      }
+    },
+    "PublicSubnet1": {
+      "Value": {
+        "Ref": "PublicSubnet01"
+      },
+      "Description": "Public Subnet in AZ 1",
+      "Export": {
+        "Name": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "VPCEnvironment"
+              },
+              "-publicSubnet01"
+            ]
+          ]
+        }
+      }
+    },
+    "PublicSubnet2": {
+      "Value": {
+        "Ref": "PublicSubnet02"
+      },
+      "Description": "Public Subnet in AZ 2",
+      "Export": {
+        "Name": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "VPCEnvironment"
+              },
+              "-publicSubnet02"
+            ]
+          ]
+        }
+      }
+    },
+    "PrivateSubnet1": {
+      "Value": {
+        "Ref": "PrivateSubnet01"
+      },
+      "Description": "Private Subnet in AZ 1",
+      "Export": {
+        "Name": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "VPCEnvironment"
+              },
+              "-privateSubnet01"
+            ]
+          ]
+        }
+      }
+    },
+    "PrivateSubnet2": {
+      "Value": {
+        "Ref": "PrivateSubnet02"
+      },
+      "Description": "private Subnet in AZ 2",
+      "Export": {
+        "Name": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "VPCEnvironment"
+              },
+              "-privateSubnet02"
+            ]
+          ]
+        }
+      }
+    },
+    "EndpointSG": {
+      "Value": {
+        "Ref": "EndpointSG"
+      },
+      "Description": "SG for API Gateway Private endpoint",
+      "Export": {
+        "Name": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "VPCEnvironment"
+              },
+              "-EndpointSG"
+            ]
+          ]
+        }
+      }
+    }
+  }
 }

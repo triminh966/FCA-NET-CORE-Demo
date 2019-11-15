@@ -17,9 +17,15 @@ using Amazon.Runtime;
 
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Amazon.Lambda.DynamoDBEvents;
 
 using FCAWS.Models;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using Amazon.SimpleSystemsManagement;
+using Amazon.SimpleSystemsManagement.Model;
+using System.Linq;
+using Amazon;
+
 
 // Assembly attribute to enable the Lambda function's JSON input to be converted into a .NET class.
 [assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.Json.JsonSerializer))]
@@ -28,33 +34,47 @@ namespace FCAWS
     public class Handler
     {
         IAmazonDynamoDB _ddbClient = new AmazonDynamoDBClient();
+
         public async Task<APIGatewayProxyResponse> OnConnect(APIGatewayProxyRequest request, ILambdaContext context)
         {
             try
             {
-                // Using JObject instead of APIGatewayProxyRequest till APIGatewayProxyRequest gets updated with DomainName and ConnectionId 
-                var connectionId = request.RequestContext.ConnectionId;
-                context.Logger.LogLine($"ConnectionId: {connectionId}");
+
                 var body = JObject.FromObject(request).ToString();
-                var FCA_TOPIC_ID = "c0a5bf76-bd5f-4f0e-9a91-68e183b4f01c";
-                var ddbRequest = new PutItemRequest
+                context.Logger.LogLine($"body: {body}");
+
+                var connectionId = request.RequestContext.ConnectionId;
+                var token = request.QueryStringParameters["Token"];
+                var appName = request.Headers["AppName"];
+                var publicationId = request.Headers["PublicationId"];
+
+                //Get URL service from Parameter Store
+                var serviceUrl = GetParameterStore(appName);
+                context.Logger.LogLine($"serviceUrl: {serviceUrl}");
+
+                //Check token with serviceURL
+                if (!String.IsNullOrEmpty(serviceUrl))
                 {
-                    TableName = Constants.WEBSOCKET_TABLE,
-                    Item = new Dictionary<string, AttributeValue>
+                    var isAuthenticated = ConnectToService(serviceUrl, token, publicationId);
+                    context.Logger.LogLine($"isAuthenticated: {isAuthenticated}");
+
+                    if (isAuthenticated.IsSuccessStatusCode)
                     {
-                        {Constants.ConnectionIdField, new AttributeValue{ S = connectionId}},
-                        {Constants.RequestBodyField, new AttributeValue{ S = body}},
-                        {Constants.PublicationId, new AttributeValue{ S = FCA_TOPIC_ID}}
+                        await SaveConnection(connectionId, publicationId, body);
+
+                        return new APIGatewayProxyResponse
+                        {
+                            StatusCode = 200,
+                            Body = "Connected"
+                        };
                     }
-                };
-
-                await _ddbClient.PutItemAsync(ddbRequest);
-
+                }
                 return new APIGatewayProxyResponse
                 {
-                    StatusCode = 200,
-                    Body = "Connected."
+                    StatusCode = 500,
+                    Body = "Not connected"
                 };
+
             }
             catch (Exception e)
             {
@@ -66,6 +86,52 @@ namespace FCAWS
                     Body = $"Failed to connect: {e.Message}"
                 };
             }
+        }
+        private string GetParameterStore(string appName)
+        {
+            var client = new AmazonSimpleSystemsManagementClient(RegionEndpoint.USEast2);
+            var requestParam = new GetParametersRequest
+            {
+                Names = new List<string> { appName }
+            };
+            var response = client.GetParametersAsync(requestParam).Result;
+            var value = response.Parameters.Single().Value;
+            var data = JObject.Parse(value)["authenticatedUrl"]?.ToString();
+            return data;
+        }
+
+        private HttpResponseMessage ConnectToService(string url, string token, string publicationId)
+        {
+            using (HttpClient client = new HttpClient())
+            {
+                var urlParameters = "?publicationId=" + publicationId;
+                client.BaseAddress = new Uri(url);
+                client.DefaultRequestHeaders.Add("Authorization", token);
+
+                // Add an Accept header for JSON format.
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                // List data response.
+                HttpResponseMessage response = client.PostAsync(urlParameters, null).Result;
+
+                return response;
+            }
+        }
+
+        private async Task<PutItemResponse> SaveConnection(string connectionId, string publicationId, string payload)
+        {
+            var ddbRequest = new PutItemRequest
+            {
+                TableName = Constants.WEBSOCKET_TABLE,
+                Item = new Dictionary<string, AttributeValue>
+                    {
+                        {Constants.ConnectionIdField, new AttributeValue{ S = connectionId}},
+                        {Constants.RequestField, new AttributeValue{ S = payload}},
+                        {Constants.PublicationId, new AttributeValue{ S = publicationId}}
+                    }
+            };
+
+            return await _ddbClient.PutItemAsync(ddbRequest);
         }
         public async Task<APIGatewayProxyResponse> OnDisconnect(APIGatewayProxyRequest request, ILambdaContext context)
         {
@@ -109,7 +175,6 @@ namespace FCAWS
             foreach (var item in list.Items)
             {
                 var connectionId = item[Constants.ConnectionIdField].S;
-
 
                 var postConnectionRequest = new PostToConnectionRequest
                 {
@@ -157,30 +222,58 @@ namespace FCAWS
                 Body = "Data send to " + count + " connection" + (count == 1 ? "" : "s")
             };
         }
-
-        public async Task<APIGatewayProxyResponse> UpdateVersion(APIGatewayProxyRequest request, ILambdaContext context)
+        public async Task<APIGatewayProxyResponse> Publication(APIGatewayProxyRequest request, ILambdaContext context)
         {
             try
             {
-                var body = JsonConvert.DeserializeObject<FCAVersion>(request.Body);
-                context.Logger.LogLine($"request body : {request.Body}");
-                var ddbRequest = new PutItemRequest
+                context.Logger.LogLine($"request : {JObject.FromObject(request).ToString()}");
+
+                var publicationId = request.Headers["PublicationId"];
+                context.Logger.LogLine($"publicationId : {publicationId}");
+
+                var scanRequest = new ScanRequest
                 {
-                    TableName = Constants.APP_VERSION_TABLE,
-                    Item = new Dictionary<string, AttributeValue>
-                    {
-                        {Constants.Id, new AttributeValue{ S = body.id}},
-                        {Constants.ApplicationId, new AttributeValue{ S = body.applicationId}},
-                        {Constants.Version, new AttributeValue{ S = body.version}}
-                    }
+                    TableName = Constants.WEBSOCKET_TABLE,
+                    ReturnConsumedCapacity = "TOTAL",
+                    ProjectionExpression = "connectionId,#pubId",
+                    ExpressionAttributeNames = new Dictionary<string, string> { { "#pubId", "publicationId" } },
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue> { { ":v_publicationId", new AttributeValue { S = publicationId } } },
+                    FilterExpression = "#pubId = :v_publicationId",
                 };
 
-                await _ddbClient.PutItemAsync(ddbRequest);
+                var scanResponse = await _ddbClient.ScanAsync(scanRequest);
+                var apiClient = new AmazonApiGatewayManagementApiClient(new AmazonApiGatewayManagementApiConfig
+                {
+                    ServiceURL = Environment.GetEnvironmentVariable("WSGateway")
+                });
+                var stream = new MemoryStream(UTF8Encoding.UTF8.GetBytes(request.Body));
 
+                return await _broadcast(scanResponse, apiClient, stream, context);
+
+            }
+            catch (Exception e)
+            {
+                context.Logger.LogLine("Error disconnecting: " + e.Message);
+                context.Logger.LogLine(e.StackTrace);
+                return new APIGatewayProxyResponse
+                {
+                    StatusCode = 500,
+                    Body = $"Failed to publication: {e.Message}"
+                };
+            }
+
+        }
+        //FCA Services
+        public APIGatewayProxyResponse Authentication(APIGatewayProxyRequest request, ILambdaContext context)
+        {
+            try
+            {
+                var body = JObject.FromObject(request).ToString();
+                context.Logger.LogLine($"request : {body}");
                 return new APIGatewayProxyResponse
                 {
                     StatusCode = 200,
-                    Body = "Update version successfully."
+                    Body = "Authentication"
                 };
             }
             catch (Exception e)
@@ -190,56 +283,68 @@ namespace FCAWS
                 return new APIGatewayProxyResponse
                 {
                     StatusCode = 500,
-                    Body = $"Failed to send message: {e.Message}"
+                    Body = $"Failed to authenticate: {e.Message}"
                 };
             }
-
         }
-        public async Task<APIGatewayProxyResponse> StreamReceiver(DynamoDBEvent dynamoEvent, ILambdaContext context)
-        {
-            var scanRequest = new ScanRequest
-            {
-                TableName = Constants.WEBSOCKET_TABLE,
-                ProjectionExpression = Constants.ConnectionIdField
-            };
-
-            var scanResponse = await _ddbClient.ScanAsync(scanRequest);
-
-            var appVersion = _getApplicationVersion(dynamoEvent, context);
-            var appVersionS = JObject.FromObject(appVersion).ToString();
-            context.Logger.LogLine("App version: " + appVersionS);
-            var stream = new MemoryStream(UTF8Encoding.UTF8.GetBytes(appVersionS));
-
-            var apiClient = new AmazonApiGatewayManagementApiClient(new AmazonApiGatewayManagementApiConfig
-            {
-                ServiceURL = Environment.GetEnvironmentVariable("ServiceURL")
-            });
-            return await _broadcast(scanResponse, apiClient, stream, context);
-        }
-        private FCAVersion _getApplicationVersion(DynamoDBEvent dEvent, ILambdaContext context)
+        public APIGatewayProxyResponse AuthorPublish(APIGatewayProxyRequest request, ILambdaContext context)
         {
             try
             {
-                context.Logger.LogLine("DynamoDBEvent " + JObject.FromObject(dEvent).ToString());
-
-                var record = dEvent.Records[0];
-                var element = record.Dynamodb.NewImage;
-
-                var result = new FCAVersion
+                context.Logger.LogLine($"request : {JObject.FromObject(request).ToString()}");
+                var publicationId = request.Headers["PublicationId"];
+                context.Logger.LogLine($"publicationId : {publicationId}");
+                if (publicationId == Constants.PulicationFCA)
                 {
-                    id = element[Constants.Id].S,
-                    applicationId = element[Constants.ApplicationId].S,
-                    version = element[Constants.Version].S
-                };
+                    using (HttpClient client = new HttpClient())
+                    {
+                        var urlParameters = "/Dev/publication";
+                        context.Logger.LogLine("DNS: " + Environment.GetEnvironmentVariable("DNSName"));
+                        context.Logger.LogLine("APIGW: " + Environment.GetEnvironmentVariable("APIGW"));
+                        var builder = new UriBuilder()
+                        {
+                            Host = Environment.GetEnvironmentVariable("DNSName"),
+                            Port = 443,
+                            Scheme = Uri.UriSchemeHttps,
+                        };
+                        context.Logger.LogLine("Uri: " + builder.Uri.ToString());
+                        client.BaseAddress = new Uri(builder.Uri.ToString());
+                        // Add an Accept header for JSON format.
+                        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                        client.DefaultRequestHeaders.Host = Environment.GetEnvironmentVariable("APIGW");
+                        client.DefaultRequestHeaders.Add("PublicationId", publicationId);
 
-                return result;
+                        //Get data
+                        var data = new StringContent(request.Body);
+
+                        // Data response.
+                        HttpResponseMessage response = client.PostAsync(urlParameters, data).Result;
+                        context.Logger.LogLine("Response: " + JObject.FromObject(response).ToString());
+                    }
+                    return new APIGatewayProxyResponse
+                    {
+                        StatusCode = 200,
+                        Body = "Authorzied"
+                    };
+                }
+                return new APIGatewayProxyResponse
+                {
+                    StatusCode = 500,
+                    Body = "Unauthorzied"
+                };
             }
             catch (Exception e)
             {
-                context.Logger.LogLine("Error when get Application version: " + e.Message);
-                return null;
+                context.Logger.LogLine("Error disconnecting: " + e.Message);
+                context.Logger.LogLine(e.StackTrace);
+                return new APIGatewayProxyResponse
+                {
+                    StatusCode = 500,
+                    Body = $"Failed to authenticate: {e.Message}"
+                };
             }
-        }
 
+        }
     }
 }
+

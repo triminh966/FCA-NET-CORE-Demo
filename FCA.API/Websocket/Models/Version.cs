@@ -2,7 +2,7 @@
 
 namespace FCAWS.Models
 {
-    [DynamoDBTable("FCAVersion")]
+    [DynamoDBTable(Constants.APP_VERSION_TABLE)]
     public class FCAVersion
     {
         [DynamoDBHashKey]
