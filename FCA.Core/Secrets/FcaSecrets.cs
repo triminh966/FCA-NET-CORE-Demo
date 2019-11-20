@@ -51,6 +51,7 @@ namespace FCA.Core.Secrets
         {
             OtfRdsDataFca = _configuration["connectionStrings:OtfRdsDataFca"];
             OtfRdsDataOTbase = _configuration["connectionStrings:OtfRdsDataOTbase"];
+            OtfRdsDataPubSub = _configuration["connectionStrings:OTFRDSDataPubSub"];
 
             AwsAccessKey = _configuration["AWS:AccessKey"];
             AwsSecretKey = _configuration["AWS:SecretKey"];
@@ -67,6 +68,7 @@ namespace FCA.Core.Secrets
         
         public string OtfRdsDataFca { get; private set; }
         public string OtfRdsDataOTbase { get; private set; }
+        public string OtfRdsDataPubSub { get; private set; }
         public string AwsAccessKey { get; private set; }
         public string AwsSecretKey { get; private set; }
         public RegionEndpoint AwsRegion { get; private set; }

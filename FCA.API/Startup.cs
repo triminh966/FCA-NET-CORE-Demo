@@ -39,10 +39,13 @@ namespace FCA.API
 
             var fcaConnectionString = _fcaSecrets.OtfRdsDataFca;
             var otbaseConnectionString = _fcaSecrets.OtfRdsDataOTbase;
+            var pubsubConnectionString = _fcaSecrets.OtfRdsDataPubSub;
             services.AddDbContext<FCAContext>(x => x.UseMySQL(fcaConnectionString));
             services.AddDbContext<OTbaseContext>(x => x.UseMySQL(otbaseConnectionString));
+            services.AddDbContext<PubSubContext>(x => x.UseMySQL(pubsubConnectionString));
 
             // Register Repositories
+            services.AddScoped<IStudentRepository, StudentRepository>();
             services.AddScoped<IChallengeRepository, ChallengeRepository>();
             services.AddScoped<IConnectionSocketRepository, ConnectionSocketRepository>();
             services.AddScoped<IStudioRepository, StudioRepository>();

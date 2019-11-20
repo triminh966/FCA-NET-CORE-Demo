@@ -37,4 +37,7 @@
       <LastGenOutput>DefinitionResources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="DbContext\" />
+  </ItemGroup>
 </Project>

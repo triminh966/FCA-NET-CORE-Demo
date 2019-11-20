@@ -15,10 +15,8 @@ using Amazon.ApiGatewayManagementApi;
 using Amazon.ApiGatewayManagementApi.Model;
 using Amazon.Runtime;
 
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-using FCAWS.Models;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using Amazon.SimpleSystemsManagement;
@@ -99,7 +97,6 @@ namespace FCAWS
             var data = JObject.Parse(value)["authenticatedUrl"]?.ToString();
             return data;
         }
-
         private HttpResponseMessage ConnectToService(string url, string token, string publicationId)
         {
             using (HttpClient client = new HttpClient())
@@ -259,88 +256,6 @@ namespace FCAWS
                 {
                     StatusCode = 500,
                     Body = $"Failed to publication: {e.Message}"
-                };
-            }
-
-        }
-        //FCA Services
-        public APIGatewayProxyResponse Authentication(APIGatewayProxyRequest request, ILambdaContext context)
-        {
-            try
-            {
-                var body = JObject.FromObject(request).ToString();
-                context.Logger.LogLine($"request : {body}");
-                return new APIGatewayProxyResponse
-                {
-                    StatusCode = 200,
-                    Body = "Authentication"
-                };
-            }
-            catch (Exception e)
-            {
-                context.Logger.LogLine("Error disconnecting: " + e.Message);
-                context.Logger.LogLine(e.StackTrace);
-                return new APIGatewayProxyResponse
-                {
-                    StatusCode = 500,
-                    Body = $"Failed to authenticate: {e.Message}"
-                };
-            }
-        }
-        public APIGatewayProxyResponse AuthorPublish(APIGatewayProxyRequest request, ILambdaContext context)
-        {
-            try
-            {
-                context.Logger.LogLine($"request : {JObject.FromObject(request).ToString()}");
-                var publicationId = request.Headers["PublicationId"];
-                context.Logger.LogLine($"publicationId : {publicationId}");
-                if (publicationId == Constants.PulicationFCA)
-                {
-                    using (HttpClient client = new HttpClient())
-                    {
-                        var urlParameters = "/Dev/publication";
-                        context.Logger.LogLine("DNS: " + Environment.GetEnvironmentVariable("DNSName"));
-                        context.Logger.LogLine("APIGW: " + Environment.GetEnvironmentVariable("APIGW"));
-                        var builder = new UriBuilder()
-                        {
-                            Host = Environment.GetEnvironmentVariable("DNSName"),
-                            Port = 443,
-                            Scheme = Uri.UriSchemeHttps,
-                        };
-                        context.Logger.LogLine("Uri: " + builder.Uri.ToString());
-                        client.BaseAddress = new Uri(builder.Uri.ToString());
-                        // Add an Accept header for JSON format.
-                        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                        client.DefaultRequestHeaders.Host = Environment.GetEnvironmentVariable("APIGW");
-                        client.DefaultRequestHeaders.Add("PublicationId", publicationId);
-
-                        //Get data
-                        var data = new StringContent(request.Body);
-
-                        // Data response.
-                        HttpResponseMessage response = client.PostAsync(urlParameters, data).Result;
-                        context.Logger.LogLine("Response: " + JObject.FromObject(response).ToString());
-                    }
-                    return new APIGatewayProxyResponse
-                    {
-                        StatusCode = 200,
-                        Body = "Authorzied"
-                    };
-                }
-                return new APIGatewayProxyResponse
-                {
-                    StatusCode = 500,
-                    Body = "Unauthorzied"
-                };
-            }
-            catch (Exception e)
-            {
-                context.Logger.LogLine("Error disconnecting: " + e.Message);
-                context.Logger.LogLine(e.StackTrace);
-                return new APIGatewayProxyResponse
-                {
-                    StatusCode = 500,
-                    Body = $"Failed to authenticate: {e.Message}"
                 };
             }
 

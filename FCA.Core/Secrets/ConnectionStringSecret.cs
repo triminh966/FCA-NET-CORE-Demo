@@ -4,5 +4,6 @@
     {
         string OtfRdsDataFca { get; }
         string OtfRdsDataOTbase { get; }
+        string OtfRdsDataPubSub { get; }
     }
 }

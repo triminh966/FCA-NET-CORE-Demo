@@ -476,28 +476,6 @@
         }
       }
     },
-    "AuthenticationFunction": {
-      "Type": "AWS::Serverless::Function",
-      "Properties": {
-        "CodeUri": "",
-        "Handler": "FCA.API::FCAWS.Handler::Authentication",
-        "MemorySize": 256,
-        "Timeout": 30,
-        "Runtime": "dotnetcore2.1",
-        "Events": {
-          "ApiResource": {
-            "Type": "Api",
-            "Properties": {
-              "Path": "/authen",
-              "Method": "POST",
-              "RestApiId": {
-                "Ref": "MyApi"
-              }
-            }
-          }
-        }
-      }
-    },
     "Deployment": {
       "Type": "AWS::ApiGatewayV2::Deployment",
       "DependsOn": [
@@ -1322,9 +1300,9 @@
       "Type": "AWS::Serverless::Function",
       "Properties": {
         "CodeUri": "",
-        "Handler": "FCA.API::FCAWS.Handler::AuthorPublish",
+        "Handler": "FCA.API::FCAServices.FCA::AuthorPublish",
         "MemorySize": 256,
-        "Timeout": 30,
+        "Timeout": 200,
         "Runtime": "dotnetcore2.1",
         "Events": {
           "ApiResource": {
@@ -1340,14 +1318,14 @@
         },
         "Role": {
           "Fn::GetAtt": [
-            "AuthorPublishFunctionRole",
+            "AuthFunctionRole",
             "Arn"
           ]
         },
         "VpcConfig": {
           "SecurityGroupIds": [
             {
-              "Ref": "AuthorPublishFunctionSG"
+              "Ref": "AuthFunctionSG"
             }
           ],
           "SubnetIds": [
@@ -1386,12 +1364,13 @@
             },
             "DNSName": {
               "Fn::Sub": "vpce-0da3b00d97303e516-p0k50jo6.execute-api.us-east-2.vpce.amazonaws.com"
-            }
+            },
+			"Database": { "Fn::Sub":"server=pubsubdb-instance-1.ctagdiac12yk.us-east-2.rds.amazonaws.com;port=3306;database=PubSub_Dev;uid=admin;password=adminmasterDev;Convert Zero Datetime=true;SSLMode=None" }
           }
         }
       }
     },
-    "AuthorPublishFunctionRole": {
+    "AuthFunctionRole": {
       "Properties": {
         "AssumeRolePolicyDocument": {
           "Statement": [
@@ -1415,7 +1394,7 @@
       },
       "Type": "AWS::IAM::Role"
     },
-    "AuthorPublishFunctionSG": {
+    "AuthFunctionSG": {
       "Type": "AWS::EC2::SecurityGroup",
       "Properties": {
         "VpcId": {
@@ -1449,9 +1428,72 @@
           },
           {
             "Key": "Name",
-            "Value": "AuthorPublishFunctionSG"
+            "Value": "AuthFunctionSG"
           }
         ]
+      }
+    },
+	"AuthenticationFunction": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "CodeUri": "",
+        "Handler": "FCA.API::FCAServices.FCA::Authentication",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Runtime": "dotnetcore2.1",
+        "Events": {
+          "ApiResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/authen",
+              "Method": "POST",
+              "RestApiId": {
+                "Ref": "MyApi"
+              }
+            }
+          }
+        },
+        "Role": {
+          "Fn::GetAtt": [
+            "AuthFunctionRole",
+            "Arn"
+          ]
+        },
+        "VpcConfig": {
+          "SecurityGroupIds": [
+            {
+              "Ref": "AuthFunctionSG"
+            }
+          ],
+          "SubnetIds": [
+            {
+              "Fn::ImportValue": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Ref": "VPCEnvironment"
+                    },
+                    "-privateSubnet01"
+                  ]
+                ]
+              }
+            },
+            {
+              "Fn::ImportValue": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Ref": "VPCEnvironment"
+                    },
+                    "-privateSubnet02"
+                  ]
+                ]
+              }
+            }
+          ]
+        }
       }
     }
   },
