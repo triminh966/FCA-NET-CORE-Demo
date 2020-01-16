@@ -6,14 +6,13 @@
         "dotnet lambda help",
         "All the command line options for the Lambda command can be specified in this file."
     ],
-    "profile"     : "default",
-    "region"      : "us-east-2",
+    "profile"     : "otf.aws",
+    "region"      : "us-east-1",
     "configuration" : "Release",
     "framework"     : "netcoreapp2.1",
     "s3-prefix"     : "FCA.API/",
-    "timeout"       : "480",
     "template"      : "serverless.template",
-    "template-parameters" : "\"ShouldCreateBucket\"=\"true\";\"BucketName\"=\"\";\"TableName\"=\"WebConnection\";\"AppVersion\"=\"AppVersion\";\"VPCEnvironment\"=\"Dev\"",
-    "s3-bucket"           : "pubsub-donet-core-2019",
+    "template-parameters" : "\"ShouldCreateBucket\"=\"true\";\"BucketName\"=\"\";\"TableName\"=\"WebConnection\";\"Environment\"=\"Dev\"",
+    "s3-bucket"           : "pubsub-2020",
     "stack-name"          : "PubSub"
 }

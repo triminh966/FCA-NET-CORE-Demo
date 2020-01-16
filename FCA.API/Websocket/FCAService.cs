@@ -12,7 +12,7 @@ namespace FCAServices
 {
     public class FCA
     {
-        public APIGatewayProxyResponse Authentication(APIGatewayProxyRequest request, ILambdaContext context)
+        public APIGatewayProxyResponse Authorizer(APIGatewayProxyRequest request, ILambdaContext context)
         {
             try
             {
@@ -26,7 +26,7 @@ namespace FCAServices
             }
             catch (Exception e)
             {
-                context.Logger.LogLine("Error disconnecting: " + e.Message);
+                context.Logger.LogLine("Error authenticate: " + e.Message);
                 context.Logger.LogLine(e.StackTrace);
                 return new APIGatewayProxyResponse
                 {
@@ -35,34 +35,35 @@ namespace FCAServices
                 };
             }
         }
-        public APIGatewayProxyResponse AuthorPublish(APIGatewayProxyRequest request, ILambdaContext context)
+        public APIGatewayProxyResponse Publish(APIGatewayProxyRequest request, ILambdaContext context)
         {
             try
             {
                 context.Logger.LogLine($"request : {JObject.FromObject(request).ToString()}");
                 var publicationId = request.Headers["PublicationId"];
                 context.Logger.LogLine($"publicationId : {publicationId}");
-                string queryString = $"SELECT * FROM  PubSub_Dev.Publication WHERE PubId = '{publicationId}'";
-                var isHasPublicationId = false;
-                using (MySqlConnection connection = new MySqlConnection(Environment.GetEnvironmentVariable("Database")))
-                {
-                    MySqlCommand command = connection.CreateCommand();
-                    command.CommandText = queryString;
-                    connection.Open();
-                    MySqlDataReader reader = command.ExecuteReader();
-                    context.Logger.LogLine($"reader : {reader.HasRows}");
-                    if (reader.HasRows)
-                    {
-                        isHasPublicationId = true;
-                    }
-                }
+                var isHasPublicationId = true;
+                //string queryString = $"SELECT * FROM  PubSub_Dev.Publication WHERE PubId = '{publicationId}'";
+                //using (MySqlConnection connection = new MySqlConnection(Environment.GetEnvironmentVariable("Database")))
+                //{
+                //    MySqlCommand command = connection.CreateCommand();
+                //    command.CommandText = queryString;
+                //    connection.Open();
+                //    MySqlDataReader reader = command.ExecuteReader();
+                //    context.Logger.LogLine($"reader : {reader.HasRows}");
+                //    if (reader.HasRows)
+                //    {
+                //        isHasPublicationId = true;
+                //    }
+                //}
                 if (isHasPublicationId)
                 {
                     using (HttpClient client = new HttpClient())
                     {
-                        var urlParameters = "/Dev/publication";
+                        var urlParameters = Environment.GetEnvironmentVariable("UrlParameters");
                         context.Logger.LogLine("DNS: " + Environment.GetEnvironmentVariable("DNSName"));
                         context.Logger.LogLine("APIGW: " + Environment.GetEnvironmentVariable("APIGW"));
+                        context.Logger.LogLine("UrlParameters: " + Environment.GetEnvironmentVariable("UrlParameters"));
                         var builder = new UriBuilder()
                         {
                             Host = Environment.GetEnvironmentVariable("DNSName"),
@@ -86,23 +87,23 @@ namespace FCAServices
                     return new APIGatewayProxyResponse
                     {
                         StatusCode = 200,
-                        Body = "Authorzied"
+                        Body = "Publish successfully"
                     };
                 }
                 return new APIGatewayProxyResponse
                 {
                     StatusCode = 500,
-                    Body = "Unauthorzied"
+                    Body = "Failed to publish"
                 };
             }
             catch (Exception e)
             {
-                context.Logger.LogLine("Error disconnecting: " + e.Message);
+                context.Logger.LogLine("Error publishing: " + e.Message);
                 context.Logger.LogLine(e.StackTrace);
                 return new APIGatewayProxyResponse
                 {
                     StatusCode = 500,
-                    Body = $"Failed to authenticate: {e.Message}"
+                    Body = $"Failed to publish: {e.Message}"
                 };
             }
 

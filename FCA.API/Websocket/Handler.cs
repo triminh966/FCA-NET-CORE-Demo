@@ -19,10 +19,6 @@ using Newtonsoft.Json.Linq;
 
 using System.Net.Http;
 using System.Net.Http.Headers;
-using Amazon.SimpleSystemsManagement;
-using Amazon.SimpleSystemsManagement.Model;
-using System.Linq;
-using Amazon;
 
 
 // Assembly attribute to enable the Lambda function's JSON input to be converted into a .NET class.
@@ -38,41 +34,20 @@ namespace FCAWS
             try
             {
 
-                var body = JObject.FromObject(request).ToString();
-                context.Logger.LogLine($"body: {body}");
+                var payload = JObject.FromObject(request).ToString();
+                context.Logger.LogLine($"payload: {payload}");
 
                 var connectionId = request.RequestContext.ConnectionId;
-                var token = request.QueryStringParameters["Token"];
-                var appName = request.Headers["AppName"];
                 var publicationId = request.Headers["PublicationId"];
 
-                //Get URL service from Parameter Store
-                var serviceUrl = GetParameterStore(appName);
-                context.Logger.LogLine($"serviceUrl: {serviceUrl}");
+                //Save connectionId to dynamoDB
+                await SaveConnection(connectionId, publicationId);
 
-                //Check token with serviceURL
-                if (!String.IsNullOrEmpty(serviceUrl))
-                {
-                    var isAuthenticated = ConnectToService(serviceUrl, token, publicationId);
-                    context.Logger.LogLine($"isAuthenticated: {isAuthenticated}");
-
-                    if (isAuthenticated.IsSuccessStatusCode)
-                    {
-                        await SaveConnection(connectionId, publicationId, body);
-
-                        return new APIGatewayProxyResponse
-                        {
-                            StatusCode = 200,
-                            Body = "Connected"
-                        };
-                    }
-                }
                 return new APIGatewayProxyResponse
                 {
-                    StatusCode = 500,
-                    Body = "Not connected"
+                    StatusCode = 200,
+                    Body = "Connected"
                 };
-
             }
             catch (Exception e)
             {
@@ -85,37 +60,7 @@ namespace FCAWS
                 };
             }
         }
-        private string GetParameterStore(string appName)
-        {
-            var client = new AmazonSimpleSystemsManagementClient(RegionEndpoint.USEast2);
-            var requestParam = new GetParametersRequest
-            {
-                Names = new List<string> { appName }
-            };
-            var response = client.GetParametersAsync(requestParam).Result;
-            var value = response.Parameters.Single().Value;
-            var data = JObject.Parse(value)["authenticatedUrl"]?.ToString();
-            return data;
-        }
-        private HttpResponseMessage ConnectToService(string url, string token, string publicationId)
-        {
-            using (HttpClient client = new HttpClient())
-            {
-                var urlParameters = "?publicationId=" + publicationId;
-                client.BaseAddress = new Uri(url);
-                client.DefaultRequestHeaders.Add("Authorization", token);
-
-                // Add an Accept header for JSON format.
-                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-                // List data response.
-                HttpResponseMessage response = client.PostAsync(urlParameters, null).Result;
-
-                return response;
-            }
-        }
-
-        private async Task<PutItemResponse> SaveConnection(string connectionId, string publicationId, string payload)
+        private async Task<PutItemResponse> SaveConnection(string connectionId, string publicationId)
         {
             var ddbRequest = new PutItemRequest
             {
@@ -123,7 +68,6 @@ namespace FCAWS
                 Item = new Dictionary<string, AttributeValue>
                     {
                         {Constants.ConnectionIdField, new AttributeValue{ S = connectionId}},
-                        {Constants.RequestField, new AttributeValue{ S = payload}},
                         {Constants.PublicationId, new AttributeValue{ S = publicationId}}
                     }
             };
@@ -241,7 +185,7 @@ namespace FCAWS
                 var scanResponse = await _ddbClient.ScanAsync(scanRequest);
                 var apiClient = new AmazonApiGatewayManagementApiClient(new AmazonApiGatewayManagementApiConfig
                 {
-                    ServiceURL = Environment.GetEnvironmentVariable("WSGateway")
+                    ServiceURL = Environment.GetEnvironmentVariable("PubSubWSGateway")
                 });
                 var stream = new MemoryStream(UTF8Encoding.UTF8.GetBytes(request.Body));
 
