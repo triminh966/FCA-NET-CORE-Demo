@@ -17,15 +17,17 @@ using Amazon.Lambda.Core;
 using Amazon.Runtime;
 using Amazon.SimpleSystemsManagement;
 using Amazon.SimpleSystemsManagement.Model;
+using FCA.API.Interfaces;
 using FCA.Core;
 using Newtonsoft.Json.Linq;
 
-namespace FCA.API.Services
+// Assembly attribute to enable the Lambda function's JSON input to be converted into a .NET class.
+[assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.Json.JsonSerializer))]
+namespace FCA.API.Services.Websocket
 {
-    public class PubSubService : IPubSubService
+    public class PubSubFunction : IPubSubService
     {
         private readonly RegionEndpoint _region = RegionEndpoint.USEast1;
-
         IAmazonDynamoDB _ddbClient = new AmazonDynamoDBClient();
 
         public APIGatewayCustomAuthorizerResponse CustomAuthor(APIGatewayCustomAuthorizerRequest request, ILambdaContext context)
@@ -134,7 +136,7 @@ namespace FCA.API.Services
             }
         }
 
-        public async Task<APIGatewayProxyResponse> PublishMessage(APIGatewayProxyRequest request, ILambdaContext context)
+        public async Task<APIGatewayProxyResponse> Publication(APIGatewayProxyRequest request, ILambdaContext context)
         {
             try
             {
@@ -289,3 +291,5 @@ namespace FCA.API.Services
         }
     }
 }
+
+

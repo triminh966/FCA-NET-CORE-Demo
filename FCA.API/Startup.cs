@@ -1,4 +1,5 @@
 using Amazon.DynamoDBv2;
+using FCA.API.Interfaces;
 using FCA.API.Services;
 using FCA.Core.Secrets;
 using Microsoft.AspNetCore.Builder;
@@ -33,7 +34,6 @@ namespace FCA.API
 
             // Register Services
             services.AddScoped<IFcaSecrets, FcaSecrets>();
-            services.AddScoped<IPubSubService, PubSubService>();
 
             // Add DynamoDB to the ASP.NET Core dependency injection framework
             services.AddDefaultAWSOptions(Configuration.GetAWSOptions());
