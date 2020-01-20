@@ -1,13 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
-using Amazon;
 using Amazon.ApiGatewayManagementApi;
 using Amazon.ApiGatewayManagementApi.Model;
 using Amazon.DynamoDBv2;
@@ -15,8 +13,6 @@ using Amazon.DynamoDBv2.Model;
 using Amazon.Lambda.APIGatewayEvents;
 using Amazon.Lambda.Core;
 using Amazon.Runtime;
-using Amazon.SimpleSystemsManagement;
-using Amazon.SimpleSystemsManagement.Model;
 using FCA.API.Interfaces;
 using FCA.Core;
 using Newtonsoft.Json.Linq;
@@ -25,9 +21,8 @@ using Newtonsoft.Json.Linq;
 [assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.Json.JsonSerializer))]
 namespace FCA.API.Services.Websocket
 {
-    public class PubSubFunction : IPubSubService
+    public class PubSubFunction : AWSSystemManagerService, IPubSubService
     {
-        private readonly RegionEndpoint _region = RegionEndpoint.USEast1;
         IAmazonDynamoDB _ddbClient = new AmazonDynamoDBClient();
 
         public APIGatewayCustomAuthorizerResponse CustomAuthor(APIGatewayCustomAuthorizerRequest request, ILambdaContext context)
@@ -41,25 +36,25 @@ namespace FCA.API.Services.Websocket
                 if (!String.IsNullOrEmpty(token) && !String.IsNullOrEmpty(appName) && !String.IsNullOrEmpty(publicationId))
                 {
                     //Get private URL service from Parameter Store
-                    var serviceUrl = GetParameterStore(appName);
+                    var serviceUrl = GetParameterStore(appName, "authenticateUrl");
                     context.Logger.LogLine($"private URL: {serviceUrl}");
 
                     var isAuthenticated = ConnectPrivateApi(serviceUrl, token, publicationId, context);
                     context.Logger.LogLine($"isAuthenticated: {isAuthenticated}");
                     if (isAuthenticated.IsSuccessStatusCode)
                     {
-                        return GeneratePolicy("me", "Allow", request.MethodArn);
+                        return _generatePolicy("me", "Allow", request.MethodArn);
                     }
-                    return GeneratePolicy("me", "Deny", request.MethodArn);
+                    return _generatePolicy("me", "Deny", request.MethodArn);
                 }
             }
             catch (Exception e)
             {
                 context.Logger.LogLine($"[WS] Error authorizer: {e.Message}. Exception: {e}");
             }
-            return GeneratePolicy("me", "Deny", request.MethodArn);
+            return _generatePolicy("me", "Deny", request.MethodArn);
         }
-        public async Task<APIGatewayProxyResponse> OnConnect(APIGatewayProxyRequest request, ILambdaContext context)
+        public async Task<APIGatewayProxyResponse> Connect(APIGatewayProxyRequest request, ILambdaContext context)
         {
             try
             {
@@ -99,8 +94,7 @@ namespace FCA.API.Services.Websocket
                 };
             }
         }
-
-        public async Task<APIGatewayProxyResponse> OnDisconnect(APIGatewayProxyRequest request, ILambdaContext context)
+        public async Task<APIGatewayProxyResponse> Disconnect(APIGatewayProxyRequest request, ILambdaContext context)
         {
             try
             {
@@ -135,7 +129,6 @@ namespace FCA.API.Services.Websocket
                 };
             }
         }
-
         public async Task<APIGatewayProxyResponse> Publish(APIGatewayProxyRequest request, ILambdaContext context)
         {
             try
@@ -176,7 +169,6 @@ namespace FCA.API.Services.Websocket
                 };
             }
         }
-
         private async Task<APIGatewayProxyResponse> _broadcast(ScanResponse list, AmazonApiGatewayManagementApiClient apiClient, MemoryStream stream, ILambdaContext context)
         {
             var count = 0;
@@ -257,19 +249,8 @@ namespace FCA.API.Services.Websocket
             }
 
         }
-        private string GetParameterStore(string appName)
-        {
-            var client = new AmazonSimpleSystemsManagementClient(_region);
-            var requestParam = new GetParametersRequest
-            {
-                Names = new List<string> { appName }
-            };
-            var response = client.GetParametersAsync(requestParam).Result;
-            var value = response.Parameters.Single().Value;
-            var data = JObject.Parse(value)["authenticateUrl"]?.ToString();
-            return data;
-        }
-        private APIGatewayCustomAuthorizerResponse GeneratePolicy(string principalId, string effect, string resouce)
+        
+        private APIGatewayCustomAuthorizerResponse _generatePolicy(string principalId, string effect, string resouce)
         {
             var statement = new APIGatewayCustomAuthorizerPolicy.IAMPolicyStatement();
             if (!String.IsNullOrEmpty(effect) && !String.IsNullOrEmpty(resouce))

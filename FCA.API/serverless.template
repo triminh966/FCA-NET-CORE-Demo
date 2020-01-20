@@ -319,7 +319,7 @@
             "Type": "AWS::Serverless::Function",
             "Properties": {
                 "CodeUri": "",
-                "Handler": "FCA.API::FCA.API.Services.Websocket.PubSubFunction::OnConnect",
+                "Handler": "FCA.API::FCA.API.Services.Websocket.PubSubFunction::Connect",
                 "MemorySize": 256,
                 "Timeout": 30,
                 "Runtime": "dotnetcore2.1",
@@ -415,7 +415,7 @@
             "Type": "AWS::Serverless::Function",
             "Properties": {
                 "CodeUri": "",
-                "Handler": "FCA.API::FCA.API.Services.Websocket.PubSubFunction::OnDisconnect",
+                "Handler": "FCA.API::FCA.API.Services.Websocket.PubSubFunction::Disconnect",
                 "MemorySize": 256,
                 "Timeout": 30,
                 "Runtime": "dotnetcore2.1",
