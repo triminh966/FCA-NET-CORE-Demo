@@ -1,15 +1,9 @@
-using Amazon.CognitoIdentityProvider.Model;
 using Amazon.DynamoDBv2;
 using FCA.API.Services;
 using FCA.Core.Secrets;
-using FCA.Data;
-using FCA.Data.DbContext;
-using FCA.Data.Repositories;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using IHostingEnvironment = Microsoft.AspNetCore.Hosting.IHostingEnvironment;
@@ -37,35 +31,13 @@ namespace FCA.API
             // Add S3 to the ASP.NET Core dependency injection framework.
             services.AddAWSService<Amazon.S3.IAmazonS3>();
 
-            var fcaConnectionString = _fcaSecrets.OtfRdsDataFca;
-            var otbaseConnectionString = _fcaSecrets.OtfRdsDataOTbase;
-            var pubsubConnectionString = _fcaSecrets.OtfRdsDataPubSub;
-            services.AddDbContext<FCAContext>(x => x.UseMySQL(fcaConnectionString));
-            services.AddDbContext<OTbaseContext>(x => x.UseMySQL(otbaseConnectionString));
-            services.AddDbContext<PubSubContext>(x => x.UseMySQL(pubsubConnectionString));
-
-            // Register Repositories
-            services.AddScoped<IStudentRepository, StudentRepository>();
-            services.AddScoped<IChallengeRepository, ChallengeRepository>();
-            services.AddScoped<IConnectionSocketRepository, ConnectionSocketRepository>();
-            services.AddScoped<IStudioRepository, StudioRepository>();
-            services.AddScoped<IStudioChallengeResultAvgRepository, StudioChallengeResultAvgRepository>();
-
             // Register Services
             services.AddScoped<IFcaSecrets, FcaSecrets>();
-            services.AddScoped<IChallengeTrackerService, ChallengeTrackerService>();
-            services.AddScoped<IAuthenticationService, AuthenticationService>();
+            services.AddScoped<IPubSubService, PubSubService>();
 
             // Add DynamoDB to the ASP.NET Core dependency injection framework
             services.AddDefaultAWSOptions(Configuration.GetAWSOptions());
             services.AddAWSService<IAmazonDynamoDB>();
-
-            // Add Authentication
-            //services.AddAuthentication(o => o.DefaultScheme = JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
-            //{
-            //    options.Audience = _fcaSecrets.ClientId;
-            //    options.Authority = _fcaSecrets.AuthorityUrl;
-            //});
 
             services.AddCors(options =>
             {
@@ -92,29 +64,12 @@ namespace FCA.API
 
             #region Automapper
 
-            AutoMapper.Mapper.Initialize(cfg =>
-            {
-                // Account and Login
-                cfg.CreateMap<AdminInitiateAuthResponse, Models.AccountLoginResponseModel>()
-                    .ForMember(dest => dest.RefreshToken,
-                        opt => opt.MapFrom(src => src.AuthenticationResult.RefreshToken))
-                    .ForMember(dest => dest.TokenType,
-                        opt => opt.MapFrom(src => src.AuthenticationResult.TokenType))
-                    .ForMember(dest => dest.ExpiresIn,
-                        opt => opt.MapFrom(src => src.AuthenticationResult.ExpiresIn))
-                    .ForMember(dest => dest.IdToken,
-                        opt => opt.MapFrom(src => src.AuthenticationResult.IdToken))
-                    .ForMember(dest => dest.AccessToken,
-                        opt => opt.MapFrom(src => src.AuthenticationResult.AccessToken));
-            });
-            
-
             #endregion
 
             app.UseCors("AllowMyOrigin");
 
             app.UseHttpsRedirection();
-            //app.UseAuthentication();
+
             app.UseMvc();
         }
     }

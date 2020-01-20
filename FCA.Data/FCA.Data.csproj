@@ -20,4 +20,11 @@
     <ProjectReference Include="..\FCA.Core\FCA.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="DbContext\" />
+    <Folder Include="Entities\" />
+    <Folder Include="Repositories\" />
+    <Folder Include="ResponseModels\" />
+  </ItemGroup>
+
 </Project>

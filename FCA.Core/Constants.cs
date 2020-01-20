@@ -12,6 +12,11 @@
         public const string CognitoUserPoolIdKey = "CognitoUserPoolId";
         public const string CognitoAuthorityKey = "CognitoAuthority";
 
+        //Websocket connection table
+        public const string WEBSOCKET_TABLE = "WebConnection";
+        public const string ConnectionIdField = "connectionId";
+        public const string PublicationId = "publicationId";
+
         public static class Division
         {
             public const string State = "state";

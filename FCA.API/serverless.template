@@ -187,7 +187,7 @@
             "Type": "AWS::Serverless::Function",
             "Properties": {
                 "CodeUri": "",
-                "Handler": "FCA.API::FCAWS.CustomAuthor::Handler",
+                "Handler": "FCA.API::FCA.API.Lambda.Websocket.PubSubFunction::CustomAuthor",
                 "MemorySize": 256,
                 "Timeout": 30,
                 "Runtime": "dotnetcore2.1",
@@ -319,7 +319,7 @@
             "Type": "AWS::Serverless::Function",
             "Properties": {
                 "CodeUri": "",
-                "Handler": "FCA.API::FCAWS.Handler::OnConnect",
+                "Handler": "FCA.API::FCA.API.Lambda.Websocket.PubSubFunction::OnConnect",
                 "MemorySize": 256,
                 "Timeout": 30,
                 "Runtime": "dotnetcore2.1",
@@ -415,7 +415,7 @@
             "Type": "AWS::Serverless::Function",
             "Properties": {
                 "CodeUri": "",
-                "Handler": "FCA.API::FCAWS.Handler::OnDisconnect",
+                "Handler": "FCA.API::FCA.API.Lambda.Websocket.PubSubFunction::OnDisconnect",
                 "MemorySize": 256,
                 "Timeout": 30,
                 "Runtime": "dotnetcore2.1",
@@ -1362,7 +1362,7 @@
         "PublicationFunction": {
             "Type": "AWS::Lambda::Function",
             "Properties": {
-                "Handler": "FCA.API::FCAWS.Handler::Publication",
+                "Handler": "FCA.API::FCA.API.Lambda.Websocket.PubSubFunction::Publication",
                 "MemorySize": 256,
                 "Timeout": 30,
                 "Runtime": "dotnetcore2.1",

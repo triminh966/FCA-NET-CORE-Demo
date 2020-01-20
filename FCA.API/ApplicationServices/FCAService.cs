@@ -55,6 +55,7 @@ namespace FCAServices
                 //    {
                 //        isHasPublicationId = true;
                 //    }
+                //    connection.Close()
                 //}
                 if (isHasPublicationId)
                 {

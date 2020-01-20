@@ -38,6 +38,8 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="Controllers\" />
     <Folder Include="DbContext\" />
+    <Folder Include="Models\" />
   </ItemGroup>
 </Project>
