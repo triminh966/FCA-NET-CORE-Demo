@@ -1362,7 +1362,7 @@
         "PublicationFunction": {
             "Type": "AWS::Lambda::Function",
             "Properties": {
-                "Handler": "FCA.API::FCA.API.Services.Websocket.PubSubFunction::Publication",
+                "Handler": "FCA.API::FCA.API.Services.Websocket.PubSubFunction::Publish",
                 "MemorySize": 256,
                 "Timeout": 30,
                 "Runtime": "dotnetcore2.1",

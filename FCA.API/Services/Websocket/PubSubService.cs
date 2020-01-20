@@ -136,7 +136,7 @@ namespace FCA.API.Services.Websocket
             }
         }
 
-        public async Task<APIGatewayProxyResponse> Publication(APIGatewayProxyRequest request, ILambdaContext context)
+        public async Task<APIGatewayProxyResponse> Publish(APIGatewayProxyRequest request, ILambdaContext context)
         {
             try
             {
